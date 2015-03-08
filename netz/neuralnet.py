@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from sklearn.base import BaseEstimator
 from theano import function
+from theano import shared
 from theano import tensor as T
 
 from costfunctions import crossentropy
@@ -13,7 +14,7 @@ from utils import flatten
 
 class NeuralNet(BaseEstimator):
     def __init__(self, layers,
-                 update=SGD, update_kwargs={'learn_rate': 0.01},
+                 update=SGD, update_kwargs={'learn_rate': shared(0.01)},
                  cost_function=crossentropy):
         self.layers = layers
         self.update = update
@@ -56,6 +57,7 @@ class NeuralNet(BaseEstimator):
         updater = self.update(**self.update_kwargs)
         updates = updater.get_updates(cost, self.layers)
         updates = flatten(updates)  # flatten and remove empty
+        self.updater_ = updater
         self.train_ = function([Xs, ys], cost, updates=updates)
 
         # generate predict function
@@ -68,11 +70,16 @@ class NeuralNet(BaseEstimator):
 
         self.is_init_ = True
 
-    def fit(self, X, y, max_iter=5):
+    def fit(self, X, y, max_iter=5, batchsize=128):
         if not hasattr(self, 'is_init_'):
             self.initialize(X, y)
+        n = X.shape[0]
+        bs = batchsize
         for epoch in range(max_iter):
-            self._fit(X, y)
+            cost_batch = []
+            for i in range(0, n, bs):
+                cost_batch.append(self._fit(X[i:i+bs], y[i:i+bs]))
+            self.cost_history_.append(sum(cost_batch) / len(cost_batch))
         return self
 
     def feed_forward(self, X):
@@ -86,4 +93,4 @@ class NeuralNet(BaseEstimator):
 
     def _fit(self, X, y):
         cost = self.train_(X, y)
-        self.cost_history_.append(cost)
+        return cost
