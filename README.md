@@ -12,5 +12,6 @@ Heavily inspired by:
 ### Example notebook
 
 Look here for an example usage:
-[MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/MNIST.ipynb)
-[Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/Convolutions.ipynb)
+
+* [MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/MNIST.ipynb)
+* [Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/Convolutions.ipynb)
