@@ -10,3 +10,7 @@ __all__ = ["sigmoid", "identity", "softmax"]
 
 def identity(self, x):
     return x
+
+
+def rectify(x):
+    return (x + abs(x)) / 2.

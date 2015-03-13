@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 from collections import defaultdict
+import operator as op
+import time
+import warnings
 
+from nolearn.lasagne import BatchIterator
+import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.cross_validation import StratifiedKFold
+from sklearn.preprocessing import OneHotEncoder
 from theano import function
 from theano import shared
 from theano import tensor as T
@@ -13,22 +20,26 @@ from utils import flatten
 
 
 class NeuralNet(BaseEstimator):
-    def __init__(self, layers,
-                 update=SGD, update_kwargs={'learn_rate': shared(0.01)},
-                 cost_function=crossentropy):
+    def __init__(
+            self,
+            layers,
+            update=SGD(),
+            cost_function=crossentropy,
+            iterator=BatchIterator(128),
+            eval_size=0.2,
+            verbose=0,
+    ):
         self.layers = layers
         self.update = update
-        self.update_kwargs = update_kwargs
         self.cost_function = cost_function
+        self.iterator = iterator
+        self.eval_size = eval_size
+        self.verbose = verbose
 
     def get_layer_params(self):
         return [layer.get_params() for layer in self.layers]
 
-    def initialize(self, X, y):
-        # symbolic
-        Xs, ys = T.dmatrix('X'), T.dmatrix('y')
-
-        # set layer names
+    def _initialize_names(self):
         name_counts = defaultdict(int)
         for layer in self.layers:
             if layer.name is not None:
@@ -39,58 +50,220 @@ class NeuralNet(BaseEstimator):
             name = raw_name + str(name_counts[raw_name] - 1)
             layer.set_name(name)
 
-        # connect layers
+    def _initialize_updates(self):
+        for layer in self.layers:
+            if layer.update is not None:
+                continue
+            if self.update is None:
+                raise TypeError("Please specify an update for each layer"
+                                "or for the neural net as a whole.")
+            layer.set_update(self.update)
+
+    def _initialize_connections(self):
         for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
             layer0.set_next_layer(layer1)
             layer1.set_prev_layer(layer0)
+
+    def _initialize_functions(self, X, y):
+        # symbolic variables
+        ys = T.dmatrix('y')
+        if X.ndim == 2:
+            Xs = T.dmatrix('X')
+        elif X.ndim == 4:
+            Xs = T.tensor4('X')
+        else:
+            ValueError("Input must be 2D or 4D, instead got {}D."
+                       "".format(X.ndim))
+
+        # generate train function
+        y_pred = self.feed_forward(Xs, deterministic=False)
+        y_pred.name = 'y_pred'
+        cost = self.cost_function(ys, y_pred)
+        updates = [layer.update.get_updates(cost, layer)
+                   for layer in self.layers if layer.update]
+        updates = flatten(updates)
+        self.train_ = function([Xs, ys], cost, updates=updates)
+
+        # generate test function
+        y_pred = self.feed_forward(Xs, deterministic=True)
+        y_pred.name = 'y_pred'
+        cost = self.cost_function(ys, y_pred)
+        self.test_ = function([Xs, ys], cost)
+
+        # generate predict function
+        self._predict = function(
+            [Xs], self.feed_forward(Xs, deterministic=True)
+        )
+
+        # generate score function
+        self._score = function(
+            [Xs, ys], self.cost_function(
+                ys, self.feed_forward(Xs, deterministic=True)
+            )
+        )
+
+    def initialize(self, X, y):
+        # set layer names
+        self._initialize_names()
+
+        # set layer updates
+        self._initialize_updates()
+
+        # connect layers
+        self._initialize_connections()
 
         # initialize layers
         for layer in self.layers:
             layer.initialize(X, y)
 
-        self.cost_history_ = []
+        # initialize encoder
+        self.encoder_ = OneHotEncoder(sparse=False).fit(y.reshape(-1, 1))
 
-        # generate train function
-        y_pred = self.feed_forward(Xs)
-        y_pred.name = 'y_pred'
-        cost = self.cost_function(ys, y_pred)
-        updater = self.update(**self.update_kwargs)
-        updates = updater.get_updates(cost, self.layers)
-        updates = flatten(updates)  # flatten and remove empty
-        self.updater_ = updater
-        self.train_ = function([Xs, ys], cost, updates=updates)
+        # progress of cost function
+        self.train_history_ = []
+        self.valid_history_ = []
 
-        # generate predict function
-        self._predict = function([Xs], self.feed_forward(Xs))
-
-        # generate score function
-        self._score = function(
-            [Xs, ys], self.cost_function(ys, self.feed_forward(Xs))
+        # header for verbose output
+        self.header_ = (
+            " Epoch | Train loss | Valid loss | Train/Val | Valid acc | Dur\n"
+            "-------|------------|------------|-----------|-----------|------"
         )
 
+        # generate theano functions
+        self._initialize_functions(X, y)
+
+        # print layer infos
+        if self.verbose:
+            shapes = [param.get_value().shape for param in
+                      flatten(self.get_layer_params()) if param]
+            nparams = reduce(op.add, [reduce(op.mul, shape) for
+                                      shape in shapes])
+            print(" ~=* Neural Network with {} learnable parameters *=~ "
+                  "".format(nparams))
+            self._print_layer_info()
         self.is_init_ = True
 
-    def fit(self, X, y, max_iter=5, batchsize=128):
+    def fit(self, X, y, max_iter=5):
         if not hasattr(self, 'is_init_'):
             self.initialize(X, y)
-        n = X.shape[0]
-        bs = batchsize
+
+        self._set_hash(X, y)
+        X_train, X_valid, labels_train, labels_valid = (
+            self.train_test_split(X, y))
+        y_train = self.encoder_.transform(labels_train.reshape(-1, 1))
+        if labels_valid.size > 0:
+            y_valid = self.encoder_.transform(labels_valid.reshape(-1, 1))
+        if self.verbose:
+            print(self.header_)
+
         for epoch in range(max_iter):
-            cost_batch = []
-            for i in range(0, n, bs):
-                cost_batch.append(self._fit(X[i:i+bs], y[i:i+bs]))
-            self.cost_history_.append(sum(cost_batch) / len(cost_batch))
+            tic = time.time()
+            # ----------- train loop ---------------
+            train_cost = []
+            for Xb, yb in self.iterator(X_train, y_train):
+                train_cost.append(self._fit(Xb, yb))
+            mean_train = np.mean(train_cost)
+            self.train_history_.append(mean_train)
+
+            # ----------- valid loop ---------------
+            valid_cost = []
+            if self.eval_size > 0.:
+                for Xb, yb in self.iterator(X_valid, y_valid):
+                    valid_cost.append(self._fit(Xb, yb, mode='test'))
+                accuracy_valid = self.score(X_valid, labels_valid, True)
+                mean_valid = np.mean(valid_cost) if valid_cost else 0
+            else:
+                accuracy_valid = 0.
+                mean_valid = 0.
+            self.valid_history_.append(mean_valid)
+
+            # --------- verbose feedback -----------
+            if not self.verbose:
+                continue
+            toc = time.time()
+            template = (" {:>5} | {:>10.6f} | {:>10.6f} | {:>8.3f}  |"
+                        "{:>8.4f}   | {:>3.1f}s")
+            print(template.format(
+                epoch,
+                mean_train,
+                mean_valid,
+                mean_train/mean_valid if mean_valid else 0.,
+                accuracy_valid,
+                toc - tic,
+            ))
         return self
 
-    def feed_forward(self, X):
-        return self.layers[-1].get_output(X)
+    def _fit(self, X, y, mode='train'):
+        if mode == 'train':
+            cost = self.train_(X, y)
+        else:
+            cost = self.test_(X, y)
+        return cost
 
-    def predict(self, X):
+    def feed_forward(self, X, deterministic=False):
+        return self.layers[-1].get_output(X, deterministic=deterministic)
+
+    def predict_proba(self, X):
         return self._predict(X)
 
-    def score(self, X, y):
-        return self._score(X, y)
+    def predict(self, X):
+        y_prob = self.predict_proba(X)
+        return np.argmax(y_prob, axis=1)
 
-    def _fit(self, X, y):
-        cost = self.train_(X, y)
-        return cost
+    def score(self, X, labels, accuracy=False):
+        if X.shape[0] != labels.shape[0]:
+            raise ValueError(
+                "Incompatible input dimensions: X.shape[0] is {},"
+                " y.shape[0] is {}".format(X.shape[0], labels.shape[0])
+            )
+        if not accuracy:
+            y = self.encoder_.transform(labels.reshape(-1, 1))
+            return self._score(X, y) + 0.
+        else:
+            y_pred = self.predict(X)
+            return np.mean(labels == y_pred)
+
+    def train_test_split(self, X, y):
+        eval_size = self.eval_size
+        if eval_size:
+            kf = StratifiedKFold(y, round(1. / eval_size))
+            train_indices, valid_indices = next(iter(kf))
+            X_train, y_train = X[train_indices], y[train_indices]
+            X_valid, y_valid = X[valid_indices], y[valid_indices]
+        else:
+            X_train, y_train = X, y
+            X_valid, y_valid = X[len(X):], y[len(y):]
+        return X_train, X_valid, y_train, y_valid
+
+    def _get_hash(self, X, y):
+        Xc, yc = X.copy(), y.copy()  # in case data is just a view
+        Xc.flags.writeable = False
+        yc.flags.writeable = False
+        X_hash, y_hash = hash(Xc.data), hash(yc.data)
+        return X_hash, y_hash
+
+    def _set_hash(self, X, y):
+        self.X_hash_, self.y_hash_ = self._get_hash(X, y)
+
+    def get_train_data(self, X, y):
+        X_hash, y_hash = self._get_hash(X, y)
+        if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
+            warnings.warn("Input data has changed since last usage")
+        X_train, __, y_train, __ = self.train_test_split(X, y)
+        return X_train, y_train
+
+    def get_valid_data(self, X, y):
+        X_hash, y_hash = self._get_hash(X, y)
+        if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
+            warnings.warn("Input data has changed since last usage")
+        __, X_valid, __, y_valid = self.train_test_split(X, y)
+        return X_valid, y_valid
+
+    def _print_layer_info(self):
+        for layer in self.layers:
+            output_shape = tuple(layer.get_output_shape())
+            print("  {:<18}\t{:<20}\tproduces {:>7} outputs".format(
+                layer.name,
+                str(output_shape),
+                str(reduce(op.mul, output_shape[1:])),
+            ))

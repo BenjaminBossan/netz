@@ -15,8 +15,13 @@ def shared_zeros_like(arr, name=None):
     return new_var
 
 
-# def flatten(lst):
-#     return [elem for sublst in lst for elem in sublst if elem]
+def shared_random_uniform(shape, low=-1, high=1, name=None,
+                          broadcastable=None):
+    arr = np.random.uniform(low=low, high=high, size=shape)
+    new_var = shared(arr, broadcastable=broadcastable)
+    if name is not None:
+        new_var.name = name
+    return new_var
 
 
 def flatten(lst):
@@ -35,8 +40,3 @@ def flatten(lst):
         for elem in sublst:
             flat_lst.append(elem)
     return flat_lst
-
-
-# def flatten(lst):
-#     flat_lst = sum(lst, [])
-#     return [elem for elem in lst if elem]

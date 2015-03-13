@@ -8,19 +8,21 @@ from utils import shared_zeros_like
 
 
 class BaseUpdater(object):
-    def __init__(self, learn_rate):
+    def __init__(
+            self, learn_rate=shared(0.01),
+            lambda1=shared(0.), lambda2=shared(0.)
+    ):
         self.learn_rate = learn_rate
+        self.lambda1 = lambda1
+        self.lambda2 = lambda2
 
-    def get_updates(self, cost, layers):
-        layer_grads = [layer.get_grads(cost) for layer in layers]
+    def get_updates(self, cost, layer):
+        grads = layer.get_grads(cost)
         updates = []
-        for layer, grads in zip(layers, layer_grads):
-            update = []
-            for param, grad in zip(layer.get_params(), grads):
-                if not param:
-                    continue
-                update.append(self.update_function(param, grad))
-            updates.append(update)
+        for param, grad in zip(layer.get_params(), grads):
+            if not param:
+                continue
+            updates.append(self.update_function(param, grad))
         # flatten and remove empty
         updates = flatten(updates)
         return updates
@@ -28,27 +30,35 @@ class BaseUpdater(object):
     def udpate_function(self, param, grad):
         raise NotImplementedError
 
-
-class GradientChecker(BaseUpdater):
-    def update_function(self, param, grad):
-        return param, grad
+    def _get_regularization(self, param):
+        regularization = 0
+        # don't regularize bias
+        if not ((hasattr(param, 'name') and param.name.startswith('b_'))):
+            regularization -= self.lambda1 * param + self.lambda2 * param ** 2
+        return regularization
 
 
 class SGD(BaseUpdater):
     def update_function(self, param, grad):
+        update = self.learn_rate * grad
+        update += self._get_regularization(param)
         return (param, param - self.learn_rate * grad)
 
 
 class Momentum(BaseUpdater):
-    def __init__(self, learn_rate, momentum=shared(0.9)):
-        self.learn_rate = learn_rate
+    def __init__(
+            self, momentum=shared(0.9),
+            *args, **kwargs
+    ):
         self.momentum = momentum
+        super(Momentum, self).__init__(*args, **kwargs)
 
     def update_function(self, param, grad):
         update = []
         name = param.name if hasattr(param, 'name') else ''
         old_update = shared_zeros_like(param, name=name + '_old_momentum')
         new_update = self.momentum * old_update - self.learn_rate * grad
+        new_update += self._get_regularization(param)
         new_update.name = name + '_new_momentum'
         update.append((old_update, new_update))
         new_param = param + new_update
@@ -63,6 +73,7 @@ class Nesterov(Momentum):
         name = param.name if hasattr(param, 'name') else ''
         old_update = shared_zeros_like(param, name=name + '_old_momentum')
         new_update = self.momentum * old_update - self.learn_rate * grad
+        new_update += self._get_regularization(param)
         new_update.name = name + '_new_momentum'
         update.append((old_update, new_update))
         new_param = param + self.momentum * new_update - self.learn_rate * grad
