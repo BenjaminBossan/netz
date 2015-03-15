@@ -31,33 +31,27 @@ class GradChecker(object):
         self.num_check = num_check
         self.epsilon = epsilon
 
-    def _get_theano_grad(self, param, x, y):
-        net = self.net
+    def _get_theano_grad(self, param, X, y):
+        # symbolic variables
         ys = T.dmatrix('y')
-        if x.ndim == 2:
-            xs = T.dmatrix('x')
-        elif x.ndim == 4:
-            xs = T.tensor4('x')
-        y_pred = self.net.feed_forward(xs, deterministic=True)
-        cost = self.net.cost_function(ys, y_pred)
+        if X.ndim == 2:
+            Xs = T.matrix('X', dtype=theano.config.floatX)
+        elif X.ndim == 4:
+            Xs = T.tensor4('X', dtype=theano.config.floatX)
+        import pdb; pdb.set_trace()
         grad = function(
-            [xs, ys], theano.grad(cost, param)
+            [Xs, ys], theano.grad(self.net.cost_deterministic_, param)
         )
-        return grad(x, y)
+        return grad(X, y)
 
     def _get_cost(self, x, y):
         net = self.net
-        ys = T.dmatrix('y')
+        ys = T.matrix('y', dtype=theano.config.floatX)
         if x.ndim == 2:
-            xs = T.dmatrix('x')
+            xs = T.matrix('x', dtype=theano.config.floatX)
         elif x.ndim == 4:
-            xs = T.tensor4('x')
-        ff = function([xs], net.feed_forward(xs, deterministic=True))
-        co = function(
-            [xs, ys],
-            net.cost_function(ys, net.feed_forward(xs, deterministic=True))
-        )
-        return co(x, y)
+            xs = T.tensor4('x', dtype=theano.config.floatX)
+        return self.net.cost_deterministic_(x, y)
 
     def _get_n_numerical_grads(self, param, x, y):
         epsilon = self.epsilon
@@ -67,7 +61,7 @@ class GradChecker(object):
             indices = list(it.product(*map(range, param_copy.shape)))
         else:
             indices = list(range(param_copy.shape[0]))
-        # only check a random n parameters
+        # only check n random parameters
         np.random.shuffle(indices)
         indices = indices[:self.num_check]
         for i in indices:
@@ -87,7 +81,7 @@ class GradChecker(object):
 
     def spit_grads(self, x, y):
         encoder = OneHotEncoder(sparse=False)
-        y_ = encoder.fit_transform(y.reshape(-1, 1))
+        y_ = encoder.fit_transform(y.reshape(-1, 1)).astype(np.float32)
         diffs = []
         params = flatten(self.net.get_layer_params())
         for param in params:

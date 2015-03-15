@@ -4,6 +4,7 @@ from __future__ import division
 from theano import shared
 
 from utils import flatten
+from utils import floatX
 from utils import shared_zeros_like
 
 
@@ -12,9 +13,9 @@ class BaseUpdater(object):
             self, learn_rate=shared(0.01),
             lambda1=shared(0.), lambda2=shared(0.)
     ):
-        self.learn_rate = learn_rate
-        self.lambda1 = lambda1
-        self.lambda2 = lambda2
+        self.learn_rate = floatX(learn_rate)
+        self.lambda1 = floatX(lambda1)
+        self.lambda2 = floatX(lambda2)
 
     def get_updates(self, cost, layer):
         grads = layer.get_grads(cost)
@@ -50,7 +51,7 @@ class Momentum(BaseUpdater):
             self, momentum=shared(0.9),
             *args, **kwargs
     ):
-        self.momentum = momentum
+        self.momentum = floatX(momentum)
         super(Momentum, self).__init__(*args, **kwargs)
 
     def update_function(self, param, grad):

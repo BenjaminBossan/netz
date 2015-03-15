@@ -28,9 +28,9 @@ np.random.seed(17411)
 NUM_CHECK = 3
 EPSILON = 1e-6
 # fake data
-X = np.random.rand(10, 8 * 4 * 4)
+X = np.random.rand(10, 8 * 4 * 4).astype(np.float32)
 X2D = X.reshape(-1, 8, 4, 4)
-y = np.random.randint(low=0, high=3, size=10).astype(float)
+y = np.random.randint(low=0, high=3, size=10).astype(np.int32)
 
 
 class BaseNetTest():
@@ -73,7 +73,9 @@ class TestSgdNet(BaseNetTest):
                   DenseLayer(100),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=SGD(shared(0.02), lambda1=0.001, lambda2=0.001),
+                        update=SGD(shared(0.02),
+                                   lambda1=shared(0.001),
+                                   lambda2=shared(0.001)),
                         eval_size=0)
         net.fit(X, y, max_iter=3)
         return net

@@ -12,6 +12,7 @@ from theano.tensor.signal.downsample import max_pool_2d
 
 from nonlinearities import sigmoid
 from nonlinearities import softmax
+from utils import floatX
 from utils import shared_random_uniform
 
 srng = RandomStreams(seed=17411)
@@ -81,7 +82,7 @@ class BaseLayer(object):
 class InputLayer(BaseLayer):
     def get_output(self, X, *args, **kwargs):
         if isinstance(X, np.ndarray):
-            X = T.constant(X, name='input')
+            X = T.constant(floatX(X), name='input')
         return X
 
     def set_update(self, *args, **kwargs):

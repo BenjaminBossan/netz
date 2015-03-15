@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder
+import theano
 from theano import function
 from theano import shared
 from theano import tensor as T
@@ -68,9 +69,9 @@ class NeuralNet(BaseEstimator):
         # symbolic variables
         ys = T.dmatrix('y')
         if X.ndim == 2:
-            Xs = T.dmatrix('X')
+            Xs = T.matrix('X', dtype=theano.config.floatX)
         elif X.ndim == 4:
-            Xs = T.tensor4('X')
+            Xs = T.tensor4('X', dtype=theano.config.floatX)
         else:
             ValueError("Input must be 2D or 4D, instead got {}D."
                        "".format(X.ndim))
@@ -79,6 +80,7 @@ class NeuralNet(BaseEstimator):
         y_pred = self.feed_forward(Xs, deterministic=False)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
+        self.cost_nondeterministic_ = cost
         updates = [layer.update.get_updates(cost, layer)
                    for layer in self.layers if layer.update]
         updates = flatten(updates)
@@ -88,6 +90,7 @@ class NeuralNet(BaseEstimator):
         y_pred = self.feed_forward(Xs, deterministic=True)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
+        self.cost_deterministic_ = cost
         self.test_ = function([Xs, ys], cost)
 
         # generate predict function

@@ -2,12 +2,19 @@
 from __future__ import division
 
 import numpy as np
+import theano
 from theano import shared
+
+
+def floatX(arr):
+    if (type(arr) is float) or (type(arr) is int):
+        arr = np.array(arr)
+    return arr.astype(theano.config.floatX)
 
 
 def shared_zeros_like(arr, name=None):
     new_var = shared(
-        np.zeros(arr.get_value().shape),
+        floatX(np.zeros(arr.get_value().shape)),
         broadcastable=arr.broadcastable,
     )
     if name is not None:
@@ -17,7 +24,7 @@ def shared_zeros_like(arr, name=None):
 
 def shared_random_uniform(shape, low=-1, high=1, name=None,
                           broadcastable=None):
-    arr = np.random.uniform(low=low, high=high, size=shape)
+    arr = floatX(np.random.uniform(low=low, high=high, size=shape))
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
