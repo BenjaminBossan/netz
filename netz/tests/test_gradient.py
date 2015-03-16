@@ -16,8 +16,11 @@ from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
 from ..nonlinearities import rectify
+from ..updaters import Adadelta
+from ..updaters import Adagrad
 from ..updaters import Momentum
 from ..updaters import Nesterov
+from ..updaters import RMSProp
 from ..updaters import SGD
 from gradutils import GradChecker
 from gradutils import verify_grad
@@ -80,7 +83,7 @@ class TestSgdNet(BaseNetTest):
 
 
 @pytest.mark.slow
-class TestMomentumNet(BaseNetTest):
+class TestMomentumDifferentialUpdateNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
         update_dense = Nesterov(momentum=shared(0.95))
@@ -95,7 +98,52 @@ class TestMomentumNet(BaseNetTest):
 
 
 @pytest.mark.slow
-class TestConvNet(BaseNetTest2D):
+class TestAdadeltaL1RegularizationNet(BaseNetTest):
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(32),
+                  DropoutLayer(),
+                  DenseLayer(24),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        update=Adadelta(lambda1=shared(0.001)))
+        net.fit(X, y, max_iter=3)
+        return net
+
+
+@pytest.mark.slow
+class TestAdagradL1L2RegularizationNet(BaseNetTest):
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(32),
+                  DropoutLayer(),
+                  DenseLayer(24),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        update=Adagrad(lambda1=shared(0.001),
+                                       lambda2=shared(0.001)))
+        net.fit(X, y, max_iter=3)
+        return net
+
+
+@pytest.mark.slow
+class TestRMSPropL2RegularizationNet(BaseNetTest):
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(32, nonlinearity=rectify),
+                  DenseLayer(24, nonlinearity=rectify),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        update=RMSProp(lambda2=0.001))
+        net.fit(X, y, max_iter=3)
+        return net
+
+
+@pytest.mark.slow
+class TestConvDropoutNet(BaseNetTest2D):
     @pytest.fixture(scope='session')
     def net(self):
         update_dense = Nesterov()
