@@ -61,8 +61,10 @@ class NeuralNet(BaseEstimator):
 
     def _initialize_connections(self):
         for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
-            layer0.set_next_layer(layer1)
-            layer1.set_prev_layer(layer0)
+            if layer0.next_layer is None:
+                layer0.set_next_layer(layer1)
+            if layer1.prev_layer is None:
+                layer1.set_prev_layer(layer0)
 
     def _initialize_functions(self, X, y):
         # symbolic variables
