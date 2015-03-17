@@ -66,9 +66,9 @@ class NeuralNet(BaseEstimator):
 
     def _initialize_functions(self, X, y):
         # symbolic variables
-        ys = T.dmatrix('y')
+        ys = T.matrix('y')
         if X.ndim == 2:
-            Xs = T.dmatrix('X')
+            Xs = T.matrix('X')
         elif X.ndim == 4:
             Xs = T.tensor4('X')
         else:
