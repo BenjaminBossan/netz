@@ -25,14 +25,14 @@ class BaseLayer(object):
             nonlinearity=sigmoid,
             params=[None],
             name=None,
-            update=None,
+            updater=None,
     ):
         self.prev_layer = prev_layer
         self.next_layer = next_layer
         self.nonlinearity = nonlinearity
         self.params = params
         self.name = name
-        self.update = update
+        self.updater = updater
 
     def initialize(self, X=None, y=None):
         input_shape = self.prev_layer.get_output_shape()
@@ -44,11 +44,11 @@ class BaseLayer(object):
     def set_next_layer(self, layer):
         self.next_layer = layer
 
-    def set_update(self, update):
-        if self.update is not None:
-            raise warnings.warn("You are overwriting the update set"
+    def set_updater(self, updater):
+        if self.updater is not None:
+            raise warnings.warn("You are overwriting the updater set"
                                 "for layer {}.".format(self.name))
-        self.update = update
+        self.updater = updater
 
     def set_name(self, name):
         self.name = name
@@ -90,7 +90,7 @@ class InputLayer(BaseLayer):
     def initialize(self, X, y):
         self.input_shape = list(map(int, X.shape))
         self.input_shape[0] = None
-        self.update = None
+        self.updater = None
 
     def get_grads(self, loss):
         return [None]
@@ -207,7 +207,7 @@ class MaxPool2DLayer(BaseLayer):
 
     def initialize(self, X, y):
         super(MaxPool2DLayer, self).initialize(X, y)
-        self.update = None
+        self.updater = None
 
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
@@ -231,7 +231,7 @@ class DropoutLayer(BaseLayer):
 
     def initialize(self, X, y):
         super(DropoutLayer, self).initialize(X, y)
-        self.update = None
+        self.updater = None
 
     def get_output(self, X, deterministic=False, *args, **kwargs):
         input = self.prev_layer.get_output(X, deterministic=deterministic,

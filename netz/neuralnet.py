@@ -23,14 +23,14 @@ class NeuralNet(BaseEstimator):
     def __init__(
             self,
             layers,
-            update=SGD(),
+            updater=SGD(),
             cost_function=crossentropy,
             iterator=BatchIterator(128),
             eval_size=0.2,
             verbose=0,
     ):
         self.layers = layers
-        self.update = update
+        self.updater = updater
         self.cost_function = cost_function
         self.iterator = iterator
         self.eval_size = eval_size
@@ -50,14 +50,14 @@ class NeuralNet(BaseEstimator):
             name = raw_name + str(name_counts[raw_name] - 1)
             layer.set_name(name)
 
-    def _initialize_updates(self):
+    def _initialize_updaters(self):
         for layer in self.layers:
-            if layer.update is not None:
+            if layer.updater is not None:
                 continue
-            if self.update is None:
-                raise TypeError("Please specify an update for each layer"
+            if self.updater is None:
+                raise TypeError("Please specify an updater for each layer"
                                 "or for the neural net as a whole.")
-            layer.set_update(self.update)
+            layer.set_updater(self.updater)
 
     def _initialize_connections(self):
         for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
@@ -79,8 +79,8 @@ class NeuralNet(BaseEstimator):
         y_pred = self.feed_forward(Xs, deterministic=False)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
-        updates = [layer.update.get_updates(cost, layer)
-                   for layer in self.layers if layer.update]
+        updates = [layer.updater.get_updates(cost, layer)
+                   for layer in self.layers if layer.updater]
         updates = flatten(updates)
         self.train_ = function([Xs, ys], cost, updates=updates)
 
@@ -106,8 +106,8 @@ class NeuralNet(BaseEstimator):
         # set layer names
         self._initialize_names()
 
-        # set layer updates
-        self._initialize_updates()
+        # set layer updaters
+        self._initialize_updaters()
 
         # connect layers
         self._initialize_connections()

@@ -75,9 +75,11 @@ class TestSgdNet(BaseNetTest):
         layers = [InputLayer(),
                   DenseLayer(100),
                   OutputLayer()]
-        net = NeuralNet(layers, cost_function=crossentropy,
-                        update=SGD(shared(0.02), lambda1=0.001, lambda2=0.001),
-                        eval_size=0)
+        net = NeuralNet(
+            layers, cost_function=crossentropy,
+            updater=SGD(shared(0.02), lambda1=0.001, lambda2=0.001),
+            eval_size=0
+        )
         net.fit(X, y, max_iter=3)
         return net
 
@@ -86,13 +88,13 @@ class TestSgdNet(BaseNetTest):
 class TestMomentumDifferentialUpdateNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
-        update_dense = Nesterov(momentum=shared(0.95))
+        updater_dense = Nesterov(momentum=shared(0.95))
         layers = [InputLayer(),
                   DenseLayer(32),
-                  DenseLayer(24, update=update_dense),
+                  DenseLayer(24, updater=updater_dense),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Momentum(learn_rate=shared(0.001)))
+                        updater=Momentum(learn_rate=shared(0.001)))
         net.fit(X, y, max_iter=3)
         return net
 
@@ -107,7 +109,7 @@ class TestAdadeltaL1RegularizationNet(BaseNetTest):
                   DenseLayer(24),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Adadelta(lambda1=shared(0.001)))
+                        updater=Adadelta(lambda1=shared(0.001)))
         net.fit(X, y, max_iter=3)
         return net
 
@@ -122,8 +124,8 @@ class TestAdagradL1L2RegularizationNet(BaseNetTest):
                   DenseLayer(24),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Adagrad(lambda1=shared(0.001),
-                                       lambda2=shared(0.001)))
+                        updater=Adagrad(lambda1=shared(0.001),
+                                        lambda2=shared(0.001)))
         net.fit(X, y, max_iter=3)
         return net
 
@@ -137,7 +139,7 @@ class TestRMSPropL2RegularizationNet(BaseNetTest):
                   DenseLayer(24, nonlinearity=rectify),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=RMSProp(lambda2=0.001))
+                        updater=RMSProp(lambda2=0.001))
         net.fit(X, y, max_iter=3)
         return net
 
@@ -146,7 +148,6 @@ class TestRMSPropL2RegularizationNet(BaseNetTest):
 class TestConvDropoutNet(BaseNetTest2D):
     @pytest.fixture(scope='session')
     def net(self):
-        update_dense = Nesterov()
         layers = [InputLayer(),
                   Conv2DLayer(3, (4, 4), nonlinearity=rectify),
                   MaxPool2DLayer(),
@@ -154,6 +155,6 @@ class TestConvDropoutNet(BaseNetTest2D):
                   DenseLayer(10),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Nesterov())
+                        updater=Nesterov())
         net.fit(X2D, y, max_iter=3)
         return net
