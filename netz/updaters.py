@@ -50,9 +50,11 @@ class BaseUpdater(object):
 
 class SGD(BaseUpdater):
     def update_function(self, param, grad):
-        update = self.learn_rate * grad
-        update += self._get_regularization(param)
-        return (param, param - self.learn_rate * grad)
+        update = []
+        param_new = param - self.learn_rate * grad
+        param_new -= self._get_regularization(param)
+        update.append((param, param_new))
+        return update
 
 
 class Momentum(BaseUpdater):
