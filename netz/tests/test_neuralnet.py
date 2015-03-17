@@ -50,6 +50,10 @@ class TestSgdNet():
             assert layer0.next_layer is layer1
             assert layer1.prev_layer is layer0
 
+    def test_encoder(self, net):
+        yt = np.argmax(net.encoder_.transform(y.reshape(-1, 1)), axis=1)
+        assert (yt == y).all()
+
 
 class TestConcatNet():
     @pytest.fixture(scope='session')
