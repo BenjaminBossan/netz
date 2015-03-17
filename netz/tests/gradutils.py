@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 import theano
 from theano import function
+from theano import grad
 from theano import shared
 from theano import tensor as T
 
@@ -41,7 +42,7 @@ class GradChecker(object):
         y_pred = self.net.feed_forward(xs, deterministic=True)
         cost = self.net.cost_function(ys, y_pred)
         grad = function(
-            [xs, ys], theano.grad(cost, param)
+            [xs, ys], grad(cost, param)
         )
         return grad(x, y)
 
