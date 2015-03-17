@@ -92,7 +92,7 @@ class InputLayer(BaseLayer):
         self.input_shape[0] = None
         self.updater = None
 
-    def get_grads(self, loss):
+    def get_grads(self, cost):
         return [None]
 
     def get_params(self):
@@ -251,3 +251,53 @@ class DropoutLayer(BaseLayer):
 
     def get_output_shape(self):
         return self.input_shape
+
+
+class InputConcatLayer(BaseLayer):
+    def __init__(self, prev_layers, *args, **kwargs):
+        super(InputConcatLayer, self).__init__(*args, **kwargs)
+        self.prev_layers = prev_layers
+
+    def initialize(self, X, y):
+        input_shapes = [layer.get_output_shape() for
+                        layer in self.prev_layers]
+        self.input_shapes = input_shapes
+        if not np.equal(*[len(input_shape) for input_shape in input_shapes]):
+            raise ValueError("Input dimensions for InputConcatLayer should "
+                             "all be equal.")
+        for d in range(len(input_shapes[0])):
+            if d == 1:
+                continue
+            if not np.equal(*[input_shape[d] for input_shape in input_shapes]):
+                raise ValueError("All input shapes except for axis one "
+                                 "must be equal for InputConcatLayer.")
+
+    def set_update(self, *args, **kwargs):
+        pass
+
+    def set_prev_layer(self, layer):
+        pass
+
+    def get_grads(self, cost):
+        return [None]
+
+    def get_params(self):
+        return [None]
+
+    def get_output(self, X, *args, **kwargs):
+        outputs = [layer.get_output(X, *args, **kwargs) for
+                   layer in self.prev_layers]
+        return T.concatenate(outputs, axis=1)
+
+    def get_output_shape(self):
+        # concatenate along the 1st axis
+        shape = []
+        input_shapes = self.input_shapes
+        for d in range(len(self.input_shapes[0])):
+            if d != 1:
+                shape.append(input_shapes[0][d])
+            else:
+                shape_concat = sum([input_shape[1] for
+                                    input_shape in input_shapes])
+                shape.append(shape_concat)
+        return tuple(shape)
