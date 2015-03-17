@@ -238,10 +238,9 @@ class NeuralNet(BaseEstimator):
         return X_train, X_valid, y_train, y_valid
 
     def _get_hash(self, X, y):
-        Xc, yc = X.copy(), y.copy()  # in case data is just a view
-        Xc.flags.writeable = False
-        yc.flags.writeable = False
-        X_hash, y_hash = hash(Xc.data), hash(yc.data)
+        # ``iter`` seems to be necessary if X or y are just views and if
+        # we want to avoid creating a copy.
+        X_hash, y_hash = hash(iter(X)), hash(iter(y))
         return X_hash, y_hash
 
     def _set_hash(self, X, y):
