@@ -111,13 +111,6 @@ class NeuralNet(BaseEstimator):
             [Xs], self.feed_forward(Xs, deterministic=True)
         )
 
-        # generate score function
-        self._score = function(
-            [Xs, ys], self.cost_function(
-                ys, self.feed_forward(Xs, deterministic=True)
-            )
-        )
-
     def initialize(self, X, y):
         # set layer names
         self._initialize_names()
@@ -234,7 +227,7 @@ class NeuralNet(BaseEstimator):
             )
         if not accuracy:
             y = self.encoder_.transform(labels.reshape(-1, 1))
-            return self._score(X, y) + 0.
+            return self.test_(X, y) + 0.
         else:
             y_pred = self.predict(X)
             return np.mean(labels == y_pred)
