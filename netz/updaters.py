@@ -11,11 +11,8 @@ from utils import shared_zeros_like
 class BaseUpdater(object):
     def __init__(
             self, learn_rate=shared(0.01),
-            lambda1=shared(0.), lambda2=shared(0.)
     ):
         self.learn_rate = learn_rate
-        self.lambda1 = lambda1
-        self.lambda2 = lambda2
 
     def get_updates(self, cost, layer):
         grads = layer.get_grads(cost)
@@ -31,28 +28,11 @@ class BaseUpdater(object):
     def udpate_function(self, param, grad):
         raise NotImplementedError
 
-    def _get_regularization(self, param):
-        """Get L1 and L2 regularization.
-
-        Be careful to add this to the update in the
-        ``update_function`` definition because this is not done
-        automatically. The reason is that depending on the updating
-        algorithm, this regularization is applied but to a subset of
-        updates.
-
-        """
-        regularization = 0
-        # don't regularize bias
-        if not ((hasattr(param, 'name') and param.name.startswith('b_'))):
-            regularization -= self.lambda1 * param + self.lambda2 * param ** 2
-        return regularization
-
 
 class SGD(BaseUpdater):
     def update_function(self, param, grad):
         update = []
         param_new = param - self.learn_rate * grad
-        param_new -= self._get_regularization(param)
         update.append((param, param_new))
         return update
 
@@ -72,7 +52,7 @@ class Momentum(BaseUpdater):
         update_new = self.momentum * update_old - self.learn_rate * grad
         update.append((update_old, update_new))
 
-        param_new = param + update_new + self._get_regularization(param)
+        param_new = param + update_new
         update.append((param, param_new))
         return update
 
@@ -86,7 +66,6 @@ class Nesterov(Momentum):
         update.append((update_old, update_new))
 
         param_new = param + self.momentum * update_new - self.learn_rate * grad
-        param_new += self._get_regularization(param)
         update.append((param, param_new))
         return update
 
@@ -110,7 +89,6 @@ class Adadelta(BaseUpdater):
         update_new = (grad * T.sqrt(accu_delta + self.epsilon) /
                       T.sqrt(accu_new + self.epsilon))
         param_new = param - self.learn_rate * update_new
-        param_new += self._get_regularization(param)
         update.append((param, param_new))
 
         accu_delta_new = (self.rho * accu_delta +
@@ -135,7 +113,6 @@ class Adagrad(BaseUpdater):
 
         param_new = param - (self.learn_rate * grad /
                              T.sqrt(accu_new + self.epsilon))
-        param_new += self._get_regularization(param)
         update.append((param, param_new))
         return update
 
@@ -157,6 +134,5 @@ class RMSProp(BaseUpdater):
 
         param_new = param - (self.learn_rate * grad /
                              T.sqrt(accu_new + self.epsilon))
-        param_new += self._get_regularization(param)
         update.append((param, param_new))
         return update

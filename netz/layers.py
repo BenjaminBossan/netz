@@ -26,6 +26,7 @@ class BaseLayer(object):
             params=[None],
             name=None,
             updater=None,
+            lambda2=0,
     ):
         self.prev_layer = prev_layer
         self.next_layer = next_layer
@@ -33,6 +34,7 @@ class BaseLayer(object):
         self.params = params
         self.name = name
         self.updater = updater
+        self.lambda2 = lambda2
 
     def initialize(self, X=None, y=None):
         input_shape = self.prev_layer.get_output_shape()
@@ -49,6 +51,12 @@ class BaseLayer(object):
             raise warnings.warn("You are overwriting the updater set"
                                 "for layer {}.".format(self.name))
         self.updater = updater
+
+    def set_lambda2(self, lambda2):
+        if self.lambda2 is not None:
+            raise warnings.warn("You are overwriting the lambda2 parameter"
+                                "for layer {}.".format(self.name))
+        self.lambda2 = lambda2
 
     def set_name(self, name):
         self.name = name
@@ -76,6 +84,9 @@ class BaseLayer(object):
         low = -high
         return shared_random_uniform(shape=shape, low=low, high=high,
                                      name=name, broadcastable=broadcastable)
+
+    def get_l2_cost(self):
+        pass
 
 
 class InputLayer(BaseLayer):
@@ -133,6 +144,9 @@ class DenseLayer(BaseLayer):
 
     def get_output_shape(self):
         return self.input_shape[0], self.num_units
+
+    def get_l2_cost(self):
+        return 0.5 * self.lambda2 * T.sum(self.W ** 2)
 
 
 class OutputLayer(DenseLayer):
@@ -198,6 +212,9 @@ class Conv2DLayer(BaseLayer):
         nrows = self.input_shape[2] - self.filter_size[0] + 1
         ncols = self.input_shape[3] - self.filter_size[1] + 1
         return self.input_shape[0], self.num_filters, nrows, ncols
+
+    def get_l2_cost(self):
+        return 0.5 * self.lambda2 * T.sum(self.W ** 2)
 
 
 class MaxPool2DLayer(BaseLayer):

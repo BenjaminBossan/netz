@@ -26,6 +26,7 @@ class NeuralNet(BaseEstimator):
             updater=SGD(),
             cost_function=crossentropy,
             iterator=BatchIterator(128),
+            lambda2=None,
             eval_size=0.2,
             verbose=0,
     ):
@@ -33,11 +34,16 @@ class NeuralNet(BaseEstimator):
         self.updater = updater
         self.cost_function = cost_function
         self.iterator = iterator
+        self.lambda2 = lambda2
         self.eval_size = eval_size
         self.verbose = verbose
 
     def get_layer_params(self):
         return [layer.get_params() for layer in self.layers]
+
+    def _get_l2_cost(self):
+        l2_cost = [layer.get_l2_cost() for layer in self.layers]
+        return T.sum([cost for cost in l2_cost if cost is not None])
 
     def _initialize_names(self):
         name_counts = defaultdict(int)
@@ -58,6 +64,12 @@ class NeuralNet(BaseEstimator):
                 raise TypeError("Please specify an updater for each layer"
                                 "or for the neural net as a whole.")
             layer.set_updater(self.updater)
+
+    def _initialize_lambda2(self):
+        for layer in self.layers:
+            if layer.lambda2 is not None:
+                continue
+            layer.set_lambda2(self.lambda2)
 
     def _initialize_connections(self):
         for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
@@ -81,6 +93,7 @@ class NeuralNet(BaseEstimator):
         y_pred = self.feed_forward(Xs, deterministic=False)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
+        cost += self._get_l2_cost()
         updates = [layer.updater.get_updates(cost, layer)
                    for layer in self.layers if layer.updater]
         updates = flatten(updates)
@@ -90,6 +103,7 @@ class NeuralNet(BaseEstimator):
         y_pred = self.feed_forward(Xs, deterministic=True)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
+        cost += self._get_l2_cost()
         self.test_ = function([Xs, ys], cost)
 
         # generate predict function
