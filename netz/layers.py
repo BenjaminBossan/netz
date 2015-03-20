@@ -269,7 +269,9 @@ class DropoutLayer(BaseLayer):
         if any(shape is None for shape in input_shape):
             input_shape = input.shape
 
-        return input * srng.binomial(input_shape, p=q)
+        mask = srng.binomial(input_shape, p=q)
+        self.mask_ = mask
+        return input * mask
 
     def get_output_shape(self):
         return self.input_shape
