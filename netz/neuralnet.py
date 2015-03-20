@@ -86,8 +86,8 @@ class NeuralNet(BaseEstimator):
         elif X.ndim == 4:
             Xs = T.tensor4('X')
         else:
-            ValueError("Input must be 2D or 4D, instead got {}D."
-                       "".format(X.ndim))
+            raise ValueError("Input must be 2D or 4D, instead got {}D."
+                             "".format(X.ndim))
 
         # generate train function
         y_pred = self.feed_forward(Xs, deterministic=False)
@@ -277,7 +277,7 @@ class NeuralNet(BaseEstimator):
             "-" * 12, "-" * 18, "-" * 12))
         for num, layer in enumerate(self.layers):
             output_shape = tuple(layer.get_output_shape())
-            row = " {:<2} | {:<12} | {:<18} | {:>12}"
+            row = " {:>2} | {:<12} | {:<18} | {:>12}"
             print(row.format(
                 num,
                 layer.name,
