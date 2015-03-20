@@ -79,9 +79,11 @@ class BaseLayer(object):
         for param, update in zip(self.get_params(), updates):
             param.set_value(update)
 
-    def create_param(self, shape, name=None, broadcastable=None):
-        high = np.sqrt(6 / sum(shape))
-        low = -high
+    def create_param(self, shape, limits=(None, None),
+                     name=None, broadcastable=None):
+        low, high = limits
+        high = high if high is not None else np.sqrt(6 / sum(shape))
+        low = low if low is not None else -high
         return shared_random_uniform(shape=shape, low=low, high=high,
                                      name=name, broadcastable=broadcastable)
 
