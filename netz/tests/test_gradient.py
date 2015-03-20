@@ -28,9 +28,9 @@ np.random.seed(17411)
 NUM_CHECK = 3
 EPSILON = 1e-6
 # fake data
-X = np.random.rand(10, 8 * 4 * 4)
+X = np.random.rand(10, 8 * 4 * 4).astype(np.float32)
 X2D = X.reshape(-1, 8, 4, 4)
-y = np.random.randint(low=0, high=3, size=10).astype(float)
+y = np.random.randint(low=0, high=3, size=10).astype(np.float32)
 
 
 class BaseNetTest():

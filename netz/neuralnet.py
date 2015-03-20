@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder
+import theano
 from theano import function
 from theano import shared
 from theano import tensor as T
@@ -66,11 +67,11 @@ class NeuralNet(BaseEstimator):
 
     def _initialize_functions(self, X, y):
         # symbolic variables
-        ys = T.dmatrix('y')
+        ys = T.matrix('y')
         if X.ndim == 2:
-            Xs = T.dmatrix('X')
+            Xs = T.matrix('X').astype(theano.config.floatX)
         elif X.ndim == 4:
-            Xs = T.tensor4('X')
+            Xs = T.tensor4('X').astype(theano.config.floatX)
         else:
             ValueError("Input must be 2D or 4D, instead got {}D."
                        "".format(X.ndim))
@@ -117,7 +118,8 @@ class NeuralNet(BaseEstimator):
             layer.initialize(X, y)
 
         # initialize encoder
-        self.encoder_ = OneHotEncoder(sparse=False).fit(y.reshape(-1, 1))
+        self.encoder_ = OneHotEncoder(
+            sparse=False, dtype=y.dtype).fit(y.reshape(-1, 1))
 
         # progress of cost function
         self.train_history_ = []
