@@ -94,7 +94,7 @@ class NeuralNet(BaseEstimator):
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
         cost += self._get_l2_cost()
-        updates = [layer.updater.get_updates(cost, layer)
+        updates = [layer.get_updates(cost, layer)
                    for layer in self.layers if layer.updater]
         updates = flatten(updates)
         self.train_ = function([Xs, ys], cost, updates=updates)
