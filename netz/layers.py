@@ -277,6 +277,91 @@ class DropoutLayer(BaseLayer):
         return self.input_shape
 
 
+class BatchNormLayer(BaseLayer):
+    def __init__(self, epsilon=1e-9, decay=0.1, *args, **kwargs):
+        super(BatchNormLayer, self).__init__(*args, **kwargs)
+        self.epsilon = epsilon
+        self.decay = decay
+
+    def initialize(self, X, y):
+        super(BatchNormLayer, self).initialize(X, y)
+
+        shape = list(self.input_shape)
+        ndim = len(shape)
+        if ndim == 2:
+            self.axes_ = (0,)
+            ema_broadcastable = (True, False)
+        elif ndim == 4:
+            self.axes_ = (0, 2, 3)
+            ema_broadcastable = (True, False, True, True)
+        for axis in self.axes_:
+            shape[axis] = 1
+
+        self.mean_ema_ = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='mean_ema_'.format(self.name),
+            broadcastable=ema_broadcastable,
+        )
+        self.std_ema_ = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='std_ema_'.format(self.name),
+            broadcastable=ema_broadcastable,
+        )
+        self.gamma = self.create_param(
+            shape=shape,
+            limits=(0.95, 1.05),
+            name='gamma_{}'.format(self.name),
+        )
+        self.beta = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='beta_{}'.format(self.name),
+        )
+
+    def get_params(self):
+        return [self.gamma, self.beta]
+
+    def get_updates(self, *args, **kwargs):
+        updates = super(BatchNormLayer, self).get_updates(*args, **kwargs)
+        # additionally update mean and std estimations
+        more_updates = [(self.mean_ema_, self.mean_ema_new_),
+                        (self.std_ema_, self.std_ema_new_)]
+        return updates + more_updates
+
+    def get_output_shape(self):
+        return self.input_shape
+
+    def _get_mean_std_ema(self, input, deterministic):
+        if deterministic:
+            return self.mean_ema_, self.std_ema_
+
+        mean_batch = T.mean(input, self.axes_, keepdims=True)
+        mean = (1 - self.decay) * self.mean_ema_ + self.decay * mean_batch
+        mean = T.addbroadcast(mean, *self.axes_)
+
+        std_batch = T.sqrt(T.var(input, self.axes_, keepdims=True) +
+                           self.epsilon)
+        std = (1 - self.decay) * self.std_ema_ + self.decay * std_batch
+        std = T.addbroadcast(std, *self.axes_)
+        return mean, std
+
+    def get_output(self, X, deterministic, *args, **kwargs):
+        input = self.prev_layer.get_output(X, deterministic, *args, **kwargs)
+
+        mean, std = self._get_mean_std_ema(input, deterministic)
+        gamma = T.addbroadcast(self.gamma, *self.axes_)
+        beta = T.addbroadcast(self.beta, *self.axes_)
+
+        input_norm = (input - mean) / std
+        input_trans = gamma * input_norm + beta
+
+        self.mean_ema_new_ = mean
+        self.std_ema_new_ = std
+        return self.nonlinearity(input_trans)
+
+
 class InputConcatLayer(BaseLayer):
     def __init__(self, prev_layers, *args, **kwargs):
         super(InputConcatLayer, self).__init__(*args, **kwargs)
