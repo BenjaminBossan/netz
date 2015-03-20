@@ -134,6 +134,7 @@ class NeuralNet(BaseEstimator):
 
         # header for verbose output
         self.header_ = (
+            "## Training Information\n"
             " Epoch | Train loss | Valid loss | Train/Val | Valid acc | Dur\n"
             "-------|------------|------------|-----------|-----------|------"
         )
@@ -147,8 +148,9 @@ class NeuralNet(BaseEstimator):
                       flatten(self.get_layer_params()) if param]
             nparams = reduce(op.add, [reduce(op.mul, shape) for
                                       shape in shapes])
-            print(" ~=* Neural Network with {} learnable parameters *=~ "
+            print("# ~=* Neural Network with {} learnable parameters *=~ "
                   "".format(nparams))
+            print("\n")
             self._print_layer_info()
         self.is_init_ = True
 
@@ -268,10 +270,18 @@ class NeuralNet(BaseEstimator):
         return X_valid, y_valid
 
     def _print_layer_info(self):
-        for layer in self.layers:
+        print("## Layer information")
+        print("  # | {:<12} | {:<18} | {:>12} ".format(
+            "name", "output shape", "total"))
+        print("----|-{}-|-{}-|-{}-".format(
+            "-" * 12, "-" * 18, "-" * 12))
+        for num, layer in enumerate(self.layers):
             output_shape = tuple(layer.get_output_shape())
-            print("  {:<18}\t{:<20}\tproduces {:>7} outputs".format(
+            row = " {:<2} | {:<12} | {:<18} | {:>12}"
+            print(row.format(
+                num,
                 layer.name,
                 str(output_shape),
                 str(reduce(op.mul, output_shape[1:])),
             ))
+        print("\n")
