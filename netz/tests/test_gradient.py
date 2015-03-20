@@ -3,22 +3,23 @@ from __future__ import division
 
 import numpy as np
 import pytest
-import theano
 from theano import shared
-import theano.tensor as T
 
 from ..costfunctions import crossentropy
 from ..layers import InputLayer
-from ..layers import Conv2DLayer
+# from ..layers import Conv2DLayer
 from ..layers import DenseLayer
-from ..layers import DropoutLayer
-from ..layers import MaxPool2DLayer
+# from ..layers import DropoutLayer
+# from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
-from ..nonlinearities import rectify
+# from ..nonlinearities import rectify
+# from ..updaters import Adadelta
+# from ..updaters import Adagrad
 from ..updaters import Momentum
 from ..updaters import Nesterov
-from ..updaters import SGD
+# from ..updaters import RMSProp
+# from ..updaters import SGD
 from gradutils import GradChecker
 from gradutils import verify_grad
 
@@ -27,6 +28,7 @@ np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
 NUM_CHECK = 3
 EPSILON = 1e-6
+ATOL = 1e-6
 # fake data
 X = np.random.rand(10, 8 * 4 * 4).astype(np.float32)
 X2D = X.reshape(-1, 8, 4, 4)
@@ -43,10 +45,10 @@ class BaseNetTest():
     def test_grad_custom(self, net):
         gc = GradChecker(net, NUM_CHECK, EPSILON)
         for theano_grad, num_grad in gc.spit_grads(X, y):
-            assert np.allclose(theano_grad, num_grad)
+            assert np.allclose(theano_grad, num_grad, atol=ATOL)
             # exclude error that gradients are just 0
-            assert not np.allclose(theano_grad, 0)
-            assert not np.allclose(num_grad, 0)
+            assert not np.allclose(theano_grad, 0, atol=ATOL)
+            assert not np.allclose(num_grad, 0, atol=ATOL)
 
 
 class BaseNetTest2D():
@@ -59,53 +61,98 @@ class BaseNetTest2D():
     def test_grad_custom(self, net):
         gc = GradChecker(net, NUM_CHECK, EPSILON)
         for theano_grad, num_grad in gc.spit_grads(X2D, y):
-            assert np.allclose(theano_grad, num_grad)
-            # exclude error that gradients are just 0
-            assert not np.allclose(theano_grad, 0)
-            assert not np.allclose(num_grad, 0)
+            assert np.allclose(theano_grad, num_grad, atol=ATOL)
+            # exclude possible error that gradients are just 0
+            assert not np.allclose(theano_grad, 0, atol=ATOL)
+            assert not np.allclose(num_grad, 0, atol=ATOL)
+
+
+# @pytest.mark.slow
+# class TestSgdNet(BaseNetTest):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   DenseLayer(100, lambda2=0.01),
+#                   OutputLayer()]
+#         net = NeuralNet(
+#             layers, cost_function=crossentropy,
+#             updater=SGD(shared(0.02)),
+#             eval_size=0
+#         )
+#         net.fit(X, y, max_iter=3)
+#         return net
 
 
 @pytest.mark.slow
-class TestSgdNet(BaseNetTest):
+class TestMomentumDifferentialUpdateNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
-        layers = [InputLayer(),
-                  DenseLayer(100),
-                  OutputLayer()]
-        net = NeuralNet(layers, cost_function=crossentropy,
-                        update=SGD(shared(0.02), lambda1=0.001, lambda2=0.001),
-                        eval_size=0)
-        net.fit(X, y, max_iter=3)
-        return net
-
-
-@pytest.mark.slow
-class TestMomentumNet(BaseNetTest):
-    @pytest.fixture(scope='session')
-    def net(self):
-        update_dense = Nesterov(momentum=shared(0.95))
+        updater_dense = Nesterov(momentum=shared(0.95))
         layers = [InputLayer(),
                   DenseLayer(32),
-                  DenseLayer(24, update=update_dense),
+                  DenseLayer(24, updater=updater_dense),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Momentum(learn_rate=shared(0.001)))
+                        updater=Momentum(learn_rate=shared(0.001)))
         net.fit(X, y, max_iter=3)
         return net
 
 
-@pytest.mark.slow
-class TestConvNet(BaseNetTest2D):
-    @pytest.fixture(scope='session')
-    def net(self):
-        update_dense = Nesterov()
-        layers = [InputLayer(),
-                  Conv2DLayer(3, (4, 4), nonlinearity=rectify),
-                  MaxPool2DLayer(),
-                  DropoutLayer(p=0.2),
-                  DenseLayer(10),
-                  OutputLayer()]
-        net = NeuralNet(layers, cost_function=crossentropy,
-                        update=Nesterov())
-        net.fit(X2D, y, max_iter=3)
-        return net
+# @pytest.mark.slow
+# class TestAdadeltaL2RegularizationNet(BaseNetTest):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   DenseLayer(32, lambda2=0.01),
+#                   DropoutLayer(),
+#                   DenseLayer(24, lambda2=0.01),
+#                   OutputLayer()]
+#         net = NeuralNet(layers, cost_function=crossentropy,
+#                         updater=Adadelta())
+#         net.fit(X, y, max_iter=3)
+#         return net
+
+
+# @pytest.mark.slow
+# class TestAdagradNet(BaseNetTest):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   DenseLayer(32),
+#                   DropoutLayer(),
+#                   DenseLayer(24),
+#                   OutputLayer()]
+#         net = NeuralNet(layers, cost_function=crossentropy,
+#                         updater=Adagrad())
+#         net.fit(X, y, max_iter=3)
+#         return net
+
+
+# @pytest.mark.slow
+# class TestRMSPropL2RegularizationNet(BaseNetTest):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   DenseLayer(32, nonlinearity=rectify, lambda2=0.001),
+#                   DenseLayer(24, nonlinearity=rectify, lambda2=0.001),
+#                   OutputLayer()]
+#         net = NeuralNet(layers, cost_function=crossentropy,
+#                         updater=RMSProp())
+#         net.fit(X, y, max_iter=3)
+#         return net
+
+
+# @pytest.mark.slow
+# class TestConvDropoutNet(BaseNetTest2D):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   Conv2DLayer(3, (4, 4), nonlinearity=rectify),
+#                   MaxPool2DLayer(),
+#                   DropoutLayer(p=0.2),
+#                   DenseLayer(10),
+#                   OutputLayer()]
+#         net = NeuralNet(layers, cost_function=crossentropy,
+#                         updater=Nesterov())
+#         net.fit(X2D, y, max_iter=3)
+#         return net

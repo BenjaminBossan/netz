@@ -2,6 +2,7 @@
 from __future__ import division
 
 from theano import shared
+from theano import tensor as T
 
 from utils import flatten
 from utils import shared_zeros_like
@@ -10,11 +11,8 @@ from utils import shared_zeros_like
 class BaseUpdater(object):
     def __init__(
             self, learn_rate=shared(0.01),
-            lambda1=shared(0.), lambda2=shared(0.)
     ):
         self.learn_rate = learn_rate
-        self.lambda1 = lambda1
-        self.lambda2 = lambda2
 
     def get_updates(self, cost, layer):
         grads = layer.get_grads(cost)
@@ -30,19 +28,13 @@ class BaseUpdater(object):
     def udpate_function(self, param, grad):
         raise NotImplementedError
 
-    def _get_regularization(self, param):
-        regularization = 0
-        # don't regularize bias
-        if not ((hasattr(param, 'name') and param.name.startswith('b_'))):
-            regularization -= self.lambda1 * param + self.lambda2 * param ** 2
-        return regularization
-
 
 class SGD(BaseUpdater):
     def update_function(self, param, grad):
-        update = self.learn_rate * grad
-        update += self._get_regularization(param)
-        return (param, param - self.learn_rate * grad)
+        update = []
+        param_new = param - self.learn_rate * grad
+        update.append((param, param_new))
+        return update
 
 
 class Momentum(BaseUpdater):
@@ -55,28 +47,92 @@ class Momentum(BaseUpdater):
 
     def update_function(self, param, grad):
         update = []
-        name = param.name if hasattr(param, 'name') else ''
-        old_update = shared_zeros_like(param, name=name + '_old_momentum')
-        new_update = self.momentum * old_update - self.learn_rate * grad
-        new_update += self._get_regularization(param)
-        new_update.name = name + '_new_momentum'
-        update.append((old_update, new_update))
-        new_param = param + new_update
-        new_param.name = name + '_new_val'
-        update.append((param, new_param))
+        update_old = shared_zeros_like(param)
+
+        update_new = self.momentum * update_old - self.learn_rate * grad
+        update.append((update_old, update_new))
+
+        param_new = param + update_new
+        update.append((param, param_new))
         return update
 
 
 class Nesterov(Momentum):
     def update_function(self, param, grad):
         update = []
-        name = param.name if hasattr(param, 'name') else ''
-        old_update = shared_zeros_like(param, name=name + '_old_momentum')
-        new_update = self.momentum * old_update - self.learn_rate * grad
-        new_update += self._get_regularization(param)
-        new_update.name = name + '_new_momentum'
-        update.append((old_update, new_update))
-        new_param = param + self.momentum * new_update - self.learn_rate * grad
-        new_param.name = name + '_new_val'
-        update.append((param, new_param))
+        update_old = shared_zeros_like(param)
+
+        update_new = self.momentum * update_old - self.learn_rate * grad
+        update.append((update_old, update_new))
+
+        param_new = param + self.momentum * update_new - self.learn_rate * grad
+        update.append((param, param_new))
+        return update
+
+
+class Adadelta(BaseUpdater):
+    def __init__(self, learn_rate=1., rho=0.95, epsilon=1e-6,
+                 *args, **kwargs):
+        super(Adadelta, self).__init__(*args, **kwargs)
+        self.learn_rate = learn_rate
+        self.rho = rho
+        self.epsilon = epsilon
+
+    def update_function(self, param, grad):
+        update = []
+        accu = shared_zeros_like(param)
+        accu_delta = shared_zeros_like(param)
+
+        accu_new = self.rho * accu + (1 - self.rho) * grad ** 2
+        update.append((accu, accu_new))
+
+        update_new = (grad * T.sqrt(accu_delta + self.epsilon) /
+                      T.sqrt(accu_new + self.epsilon))
+        param_new = param - self.learn_rate * update_new
+        update.append((param, param_new))
+
+        accu_delta_new = (self.rho * accu_delta +
+                          (1 - self.rho) * update_new ** 2)
+        update.append((accu_delta, accu_delta_new))
+        return update
+
+
+class Adagrad(BaseUpdater):
+    def __init__(self, learn_rate=1., epsilon=1e-6,
+                 *args, **kwargs):
+        super(Adagrad, self).__init__(*args, **kwargs)
+        self.learn_rate = learn_rate
+        self.epsilon = epsilon
+
+    def update_function(self, param, grad):
+        update = []
+        accu = shared_zeros_like(param)
+
+        accu_new = accu + grad ** 2
+        update.append((accu, accu_new))
+
+        param_new = param - (self.learn_rate * grad /
+                             T.sqrt(accu_new + self.epsilon))
+        update.append((param, param_new))
+        return update
+
+
+class RMSProp(BaseUpdater):
+    def __init__(self, learn_rate=1., rho=0.95, epsilon=1e-6,
+                 *args, **kwargs):
+        super(RMSProp, self).__init__(*args, **kwargs)
+        self.learn_rate = learn_rate
+        self.rho = rho
+        self.epsilon = epsilon
+
+    def update_function(self, param, grad):
+        update = []
+        accu = shared_zeros_like(param)
+
+        accu_new = self.rho * accu + (1 - self.rho) * grad ** 2
+        update.append((accu, accu_new))
+
+        param_new = param - (self.learn_rate * grad /
+                             T.sqrt(accu_new + self.epsilon))
+        update.append((param, param_new))
         return update

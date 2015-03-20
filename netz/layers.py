@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import theano
 import theano.tensor as T
-from theano import shared
 from theano.tensor.shared_randomstreams import RandomStreams
 from theano.tensor.signal.downsample import max_pool_2d
 
@@ -25,14 +24,16 @@ class BaseLayer(object):
             nonlinearity=sigmoid,
             params=[None],
             name=None,
-            update=None,
+            updater=None,
+            lambda2=0,
     ):
         self.prev_layer = prev_layer
         self.next_layer = next_layer
         self.nonlinearity = nonlinearity
         self.params = params
         self.name = name
-        self.update = update
+        self.updater = updater
+        self.lambda2 = lambda2
 
     def initialize(self, X=None, y=None):
         input_shape = self.prev_layer.get_output_shape()
@@ -44,11 +45,17 @@ class BaseLayer(object):
     def set_next_layer(self, layer):
         self.next_layer = layer
 
-    def set_update(self, update):
-        if self.update is not None:
-            raise warnings.warn("You are overwriting the update set"
+    def set_updater(self, updater):
+        if self.updater is not None:
+            raise warnings.warn("You are overwriting the updater set"
                                 "for layer {}.".format(self.name))
-        self.update = update
+        self.updater = updater
+
+    def set_lambda2(self, lambda2):
+        if self.lambda2 is not None:
+            raise warnings.warn("You are overwriting the lambda2 parameter"
+                                "for layer {}.".format(self.name))
+        self.lambda2 = lambda2
 
     def set_name(self, name):
         self.name = name
@@ -71,11 +78,19 @@ class BaseLayer(object):
         for param, update in zip(self.get_params(), updates):
             param.set_value(update)
 
-    def create_param(self, shape, name=None, broadcastable=None):
-        high = np.sqrt(6 / sum(shape))
-        low = -high
+    def create_param(self, shape, limits=(None, None),
+                     name=None, broadcastable=None):
+        low, high = limits
+        high = high if high is not None else np.sqrt(6 / sum(shape))
+        low = low if low is not None else -high
         return shared_random_uniform(shape=shape, low=low, high=high,
                                      name=name, broadcastable=broadcastable)
+
+    def get_l2_cost(self):
+        pass
+
+    def get_updates(self, cost, layer):
+        return self.updater.get_updates(cost, layer)
 
 
 class InputLayer(BaseLayer):
@@ -90,9 +105,9 @@ class InputLayer(BaseLayer):
     def initialize(self, X, y):
         self.input_shape = list(map(int, X.shape))
         self.input_shape[0] = None
-        self.update = None
+        self.updater = None
 
-    def get_grads(self, loss):
+    def get_grads(self, cost):
         return [None]
 
     def get_params(self):
@@ -133,6 +148,9 @@ class DenseLayer(BaseLayer):
 
     def get_output_shape(self):
         return self.input_shape[0], self.num_units
+
+    def get_l2_cost(self):
+        return 0.5 * self.lambda2 * T.sum(self.W ** 2)
 
 
 class OutputLayer(DenseLayer):
@@ -187,7 +205,6 @@ class Conv2DLayer(BaseLayer):
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
         conv = T.nnet.conv2d(input, self.W, subsample=self.strides,
-                             #image_shape=input.shape,
                              filter_shape=self.filter_shape_)
         activation = conv + self.b.dimshuffle('x', 0, 'x', 'x')
         return self.nonlinearity(activation)
@@ -199,6 +216,9 @@ class Conv2DLayer(BaseLayer):
         ncols = self.input_shape[3] - self.filter_size[1] + 1
         return self.input_shape[0], self.num_filters, nrows, ncols
 
+    def get_l2_cost(self):
+        return 0.5 * self.lambda2 * T.sum(self.W ** 2)
+
 
 class MaxPool2DLayer(BaseLayer):
     def __init__(self, ds=(2, 2), *args, **kwargs):
@@ -207,7 +227,7 @@ class MaxPool2DLayer(BaseLayer):
 
     def initialize(self, X, y):
         super(MaxPool2DLayer, self).initialize(X, y)
-        self.update = None
+        self.updater = None
 
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
@@ -231,7 +251,7 @@ class DropoutLayer(BaseLayer):
 
     def initialize(self, X, y):
         super(DropoutLayer, self).initialize(X, y)
-        self.update = None
+        self.updater = None
 
     def get_output(self, X, deterministic=False, *args, **kwargs):
         input = self.prev_layer.get_output(X, deterministic=deterministic,
@@ -247,7 +267,144 @@ class DropoutLayer(BaseLayer):
         if any(shape is None for shape in input_shape):
             input_shape = input.shape
 
-        return input * srng.binomial(input_shape, p=q)
+        mask = srng.binomial(input_shape, p=q)
+        self.mask_ = mask
+        return input * mask
 
     def get_output_shape(self):
         return self.input_shape
+
+
+class BatchNormLayer(BaseLayer):
+    def __init__(self, epsilon=1e-9, decay=0.1, *args, **kwargs):
+        super(BatchNormLayer, self).__init__(*args, **kwargs)
+        self.epsilon = epsilon
+        self.decay = decay
+
+    def initialize(self, X, y):
+        super(BatchNormLayer, self).initialize(X, y)
+
+        shape = list(self.input_shape)
+        ndim = len(shape)
+        if ndim == 2:
+            self.axes_ = (0,)
+            ema_broadcastable = (True, False)
+        elif ndim == 4:
+            self.axes_ = (0, 2, 3)
+            ema_broadcastable = (True, False, True, True)
+        for axis in self.axes_:
+            shape[axis] = 1
+
+        self.mean_ema_ = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='mean_ema_'.format(self.name),
+            broadcastable=ema_broadcastable,
+        )
+        self.std_ema_ = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='std_ema_'.format(self.name),
+            broadcastable=ema_broadcastable,
+        )
+        self.gamma = self.create_param(
+            shape=shape,
+            limits=(0.95, 1.05),
+            name='gamma_{}'.format(self.name),
+        )
+        self.beta = self.create_param(
+            shape=shape,
+            limits=(0., 0.),
+            name='beta_{}'.format(self.name),
+        )
+
+    def get_params(self):
+        return [self.gamma, self.beta]
+
+    def get_updates(self, *args, **kwargs):
+        updates = super(BatchNormLayer, self).get_updates(*args, **kwargs)
+        # additionally update mean and std estimations
+        more_updates = [(self.mean_ema_, self.mean_ema_new_),
+                        (self.std_ema_, self.std_ema_new_)]
+        return updates + more_updates
+
+    def get_output_shape(self):
+        return self.input_shape
+
+    def _get_mean_std_ema(self, input, deterministic):
+        if deterministic:
+            return self.mean_ema_, self.std_ema_
+
+        mean_batch = T.mean(input, self.axes_, keepdims=True)
+        mean = (1 - self.decay) * self.mean_ema_ + self.decay * mean_batch
+        mean = T.addbroadcast(mean, *self.axes_)
+
+        std_batch = T.sqrt(T.var(input, self.axes_, keepdims=True) +
+                           self.epsilon)
+        std = (1 - self.decay) * self.std_ema_ + self.decay * std_batch
+        std = T.addbroadcast(std, *self.axes_)
+        return mean, std
+
+    def get_output(self, X, deterministic, *args, **kwargs):
+        input = self.prev_layer.get_output(X, deterministic, *args, **kwargs)
+
+        mean, std = self._get_mean_std_ema(input, deterministic)
+        gamma = T.addbroadcast(self.gamma, *self.axes_)
+        beta = T.addbroadcast(self.beta, *self.axes_)
+
+        input_norm = (input - mean) / std
+        input_trans = gamma * input_norm + beta
+
+        self.mean_ema_new_ = mean
+        self.std_ema_new_ = std
+        return self.nonlinearity(input_trans)
+
+
+class InputConcatLayer(BaseLayer):
+    def __init__(self, prev_layers, *args, **kwargs):
+        super(InputConcatLayer, self).__init__(*args, **kwargs)
+        self.prev_layers = prev_layers
+
+    def initialize(self, X, y):
+        input_shapes = [layer.get_output_shape() for
+                        layer in self.prev_layers]
+        self.input_shapes = input_shapes
+        if not np.equal(*[len(input_shape) for input_shape in input_shapes]):
+            raise ValueError("Input dimensions for InputConcatLayer should "
+                             "all be equal.")
+        for d in range(len(input_shapes[0])):
+            if d == 1:
+                continue
+            if not np.equal(*[input_shape[d] for input_shape in input_shapes]):
+                raise ValueError("All input shapes except for axis one "
+                                 "must be equal for InputConcatLayer.")
+
+    def set_update(self, *args, **kwargs):
+        pass
+
+    def set_prev_layer(self, layer):
+        pass
+
+    def get_grads(self, cost):
+        return [None]
+
+    def get_params(self):
+        return [None]
+
+    def get_output(self, X, *args, **kwargs):
+        outputs = [layer.get_output(X, *args, **kwargs) for
+                   layer in self.prev_layers]
+        return T.concatenate(outputs, axis=1)
+
+    def get_output_shape(self):
+        # concatenate along the 1st axis
+        shape = []
+        input_shapes = self.input_shapes
+        for d in range(len(self.input_shapes[0])):
+            if d != 1:
+                shape.append(input_shapes[0][d])
+            else:
+                shape_concat = sum([input_shape[1] for
+                                    input_shape in input_shapes])
+                shape.append(shape_concat)
+        return tuple(shape)

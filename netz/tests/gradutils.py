@@ -7,7 +7,6 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 import theano
 from theano import function
-from theano import shared
 from theano import tensor as T
 
 from ..utils import flatten
@@ -38,26 +37,12 @@ class GradChecker(object):
             xs = T.dmatrix('x')
         elif x.ndim == 4:
             xs = T.tensor4('x')
-        y_pred = self.net.feed_forward(xs, deterministic=True)
-        cost = self.net.cost_function(ys, y_pred)
+        y_pred = net.feed_forward(xs, deterministic=True)
+        cost = net.cost_function(ys, y_pred)
         grad = function(
             [xs, ys], theano.grad(cost, param)
         )
         return grad(x, y)
-
-    def _get_cost(self, x, y):
-        net = self.net
-        ys = T.dmatrix('y')
-        if x.ndim == 2:
-            xs = T.dmatrix('x')
-        elif x.ndim == 4:
-            xs = T.tensor4('x')
-        ff = function([xs], net.feed_forward(xs, deterministic=True))
-        co = function(
-            [xs, ys],
-            net.cost_function(ys, net.feed_forward(xs, deterministic=True))
-        )
-        return co(x, y)
 
     def _get_n_numerical_grads(self, param, x, y):
         epsilon = self.epsilon
@@ -74,11 +59,11 @@ class GradChecker(object):
             param_pe = deepcopy(param_copy)
             param_pe[i] += epsilon
             param.set_value(param_pe)
-            cost_pe = self._get_cost(x, y)
+            cost_pe = self.net.test_(x, y)
             param_me = deepcopy(param_copy)
             param_me[i] -= epsilon
             param.set_value(param_me)
-            cost_me = self._get_cost(x, y)
+            cost_me = self.net.test_(x, y)
             num_grads[i] = (cost_pe - cost_me) / epsilon / 2
         # restore parameter
         param.set_value(param_copy)
@@ -88,7 +73,6 @@ class GradChecker(object):
     def spit_grads(self, x, y):
         encoder = OneHotEncoder(sparse=False)
         y_ = encoder.fit_transform(y.reshape(-1, 1))
-        diffs = []
         params = flatten(self.net.get_layer_params())
         for param in params:
             if not param:
