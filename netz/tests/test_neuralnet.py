@@ -19,9 +19,9 @@ np.random.seed(17411)
 NUM_CHECK = 3
 EPSILON = 1e-6
 df = pd.read_csv('netz/tests/mnist_short.csv')
-X = df.values[:, 1:] / 255
+X = (df.values[:, 1:] / 255).astype(np.float32)
 X = (X - X.mean()) / X.std()
-y = df.values[:, 0]
+y = df.values[:, 0].astype(np.int32)
 X2D = X.reshape(-1, 1, 28, 28)
 NUM_CLASSES = len(np.unique(y))
 
