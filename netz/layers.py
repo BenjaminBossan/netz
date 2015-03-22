@@ -4,8 +4,10 @@ import operator as op
 import warnings
 
 import numpy as np
+from pylearn2.sandbox.cuda_convnet.filter_acts import FilterActs
 import theano
 import theano.tensor as T
+from theano.sandbox.cuda.basic_ops import gpu_contiguous
 from theano.tensor.shared_randomstreams import RandomStreams
 from theano.tensor.signal.downsample import max_pool_2d
 
@@ -218,6 +220,50 @@ class Conv2DLayer(BaseLayer):
 
     def get_l2_cost(self):
         return 0.5 * self.lambda2 * T.sum(self.W ** 2)
+
+
+class Conv2DCCLayer(Conv2DLayer):
+    def __init__(
+            self,
+            num_filters,
+            filter_size,
+            strides=(1, 1),
+            pad=0,
+            *args,
+            **kwargs
+    ):
+        super(Conv2DLayer, self).__init__(*args, **kwargs)
+        self.num_filters = num_filters
+        self.filter_size = filter_size
+        self.strides = strides
+        self.pad = pad
+
+    def initialize(self, X, y):
+        if self.num_filters % 16 != 0:
+            raise ValueError("num_filters must be multiple of 16, "
+                             "not {}".format(self.num_filters))
+        if self.filter_size[0] != self.filter_size[1]:
+            raise ValueError("filter_size must be square")
+        if self.strides[0] != self.strides[1]:
+            raise ValueError("strides must be the same in x and y")
+        super(Conv2DCCLayer, self).initialize(X, y)
+        self.filter_acts_op = FilterActs(
+            stride=self.strides[0], pad=self.pad, partial_sum=1)
+
+    def get_output(self, X, *args, **kwargs):
+        input = self.prev_layer.get_output(X, *args, **kwargs)
+
+        # shuffle dimensions to cuda convnet default c01b
+        input = input.dimshuffle(1, 2, 3, 0)
+        filters = self.W.dimshuffle(1, 2, 3, 0)
+        biases = self.b.dimshuffle(0, 'x', 'x', 'x')
+        # make data gpu contiguous
+        input = gpu_contiguous(input)
+        filters = gpu_contiguous(filters)
+
+        conv = self.filter_acts_op(input, filters) + biases
+        activation = self.nonlinearity(conv)
+        return activation.dimshuffle(3, 0, 1, 2)
 
 
 class MaxPool2DLayer(BaseLayer):
