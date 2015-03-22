@@ -10,6 +10,7 @@ from theano import function
 from theano import tensor as T
 
 from ..utils import flatten
+from ..utils import to_32
 
 np.random.seed(17411)
 
@@ -19,7 +20,7 @@ def verify_grad(net, x, y, abs_tol=None):
         cost = net.cost_function(y, net.feed_forward(x, deterministic=True))
         return cost
     # one-hot encode y
-    encoder = OneHotEncoder(sparse=False)
+    encoder = OneHotEncoder(sparse=False, dtype=np.float32)
     y_ = encoder.fit_transform(y.reshape(-1, 1))
     T.verify_grad(fun, [x, y_], rng=np.random.RandomState(42), abs_tol=abs_tol)
 
@@ -28,15 +29,15 @@ class GradChecker(object):
     def __init__(self, net, num_check=10, epsilon=1e-6):
         self.net = net
         self.num_check = num_check
-        self.epsilon = epsilon
+        self.epsilon = to_32(epsilon)
 
     def _get_theano_grad(self, param, x, y):
         net = self.net
-        ys = T.dmatrix('y')
+        ys = T.dmatrix('y').astype(theano.config.floatX)
         if x.ndim == 2:
-            xs = T.dmatrix('x')
+            xs = T.dmatrix('x').astype(theano.config.floatX)
         elif x.ndim == 4:
-            xs = T.tensor4('x')
+            xs = T.tensor4('x').astype(theano.config.floatX)
         y_pred = net.feed_forward(xs, deterministic=True)
         cost = net.cost_function(ys, y_pred)
         grad = function(
@@ -70,17 +71,40 @@ class GradChecker(object):
 
         return num_grads, indices
 
+    # def spit_grads(self, x, y):
+    #     encoder = OneHotEncoder(sparse=False, dtype=np.float32)
+    #     y_ = encoder.fit_transform(y.reshape(-1, 1))
+    #     params = flatten(self.net.get_layer_params())
+    #     for param in params:
+    #         if not param:
+    #             continue
+    #         theano_grad = self._get_theano_grad(param, x, y_)
+    #         numerical_grad, indices = self._get_n_numerical_grads(
+    #             param, x, y_
+    #         )
+    #         if isinstance(indices[0], tuple):
+    #             indices = zip(*indices)
+    #         yield theano_grad[indices], numerical_grad[indices]
+
     def spit_grads(self, x, y):
-        encoder = OneHotEncoder(sparse=False)
+        encoder = OneHotEncoder(sparse=False, dtype=np.float32)
         y_ = encoder.fit_transform(y.reshape(-1, 1))
-        params = flatten(self.net.get_layer_params())
-        for param in params:
-            if not param:
-                continue
-            theano_grad = self._get_theano_grad(param, x, y_)
-            numerical_grad, indices = self._get_n_numerical_grads(
-                param, x, y_
-            )
-            if isinstance(indices[0], tuple):
-                indices = zip(*indices)
-            yield theano_grad[indices], numerical_grad[indices]
+        net = self.net
+        ys = T.dmatrix('y').astype(theano.config.floatX)
+        if x.ndim == 2:
+            xs = T.dmatrix('x').astype(theano.config.floatX)
+        elif x.ndim == 4:
+            xs = T.tensor4('x').astype(theano.config.floatX)
+        for layer in net.layers:
+            grad = function([xs, ys], layer.get_grads(net.cost_test_))
+            # theano_grads = layer.get_grads(net.cost_test_)
+            theano_grads = grad(x, y_)
+            for theano_grad, param in zip(theano_grads, layer.get_params()):
+                if not param:
+                    continue
+                numerical_grad, indices = self._get_n_numerical_grads(
+                    param, x, y_
+                )
+                if isinstance(indices[0], tuple):
+                    indices = zip(*indices)
+                yield theano_grad[indices], numerical_grad[indices]
