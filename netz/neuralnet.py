@@ -171,6 +171,7 @@ class NeuralNet(BaseEstimator):
             y_valid = self.encoder_.transform(labels_valid.reshape(-1, 1))
         if self.verbose:
             print(self.header_)
+            num_epochs_past = len(self.train_history_)
 
         for epoch in range(max_iter):
             tic = time.time()
@@ -200,7 +201,7 @@ class NeuralNet(BaseEstimator):
             template = (" {:>5} | {:>10.6f} | {:>10.6f} | {:>8.3f}  |"
                         "{:>8.4f}   | {:>3.1f}s")
             print(template.format(
-                epoch,
+                num_epochs_past + epoch,
                 mean_train,
                 mean_valid,
                 mean_train / mean_valid if mean_valid else 0.,
