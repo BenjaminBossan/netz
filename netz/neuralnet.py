@@ -97,19 +97,21 @@ class NeuralNet(BaseEstimator):
         updates = [layer.get_updates(cost, layer)
                    for layer in self.layers if layer.updater]
         updates = flatten(updates)
-        self.train_ = function([Xs, ys], cost, updates=updates)
+        self.train_ = function([Xs, ys], cost, updates=updates,
+                               allow_input_downcast=True)
 
         # generate test function
         y_pred = self.feed_forward(Xs, deterministic=True)
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
         cost += self._get_l2_cost()
-        self.test_ = function([Xs, ys], cost)
+        self.test_ = function([Xs, ys], cost,
+                              allow_input_downcast=True)
 
         # generate predict function
         self._predict = function(
-            [Xs], self.feed_forward(Xs, deterministic=True)
-        )
+            [Xs], self.feed_forward(Xs, deterministic=True),
+            allow_input_downcast=True)
 
     def initialize(self, X, y):
         # set layer names
