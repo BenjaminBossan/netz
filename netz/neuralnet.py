@@ -80,7 +80,7 @@ class NeuralNet(BaseEstimator):
 
     def _initialize_functions(self, X, y):
         # symbolic variables
-        ys = T.matrix('y')
+        ys = T.matrix('y').astype(theano.config.floatX)
         if X.ndim == 2:
             Xs = T.matrix('X').astype(theano.config.floatX)
         elif X.ndim == 4:
@@ -94,6 +94,7 @@ class NeuralNet(BaseEstimator):
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
         cost += self._get_l2_cost()
+        self.cost_train_ = cost
         updates = [layer.get_updates(cost, layer)
                    for layer in self.layers if layer.updater]
         updates = flatten(updates)
@@ -105,6 +106,7 @@ class NeuralNet(BaseEstimator):
         y_pred.name = 'y_pred'
         cost = self.cost_function(ys, y_pred)
         cost += self._get_l2_cost()
+        self.cost_test_ = cost
         self.test_ = function([Xs, ys], cost,
                               allow_input_downcast=True)
 

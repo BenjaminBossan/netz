@@ -6,14 +6,33 @@ import theano
 from theano import shared
 
 
+def to_32(x):
+    if type(x) == int:
+        return np.array(x).astype(np.int32)
+    if type(x) == float:
+        return np.array(x).astype(np.float32)
+    if isinstance(x, np.ndarray):
+        return x.astype(np.float32)
+    return x
+    return theano.tensor.cast(x, 'float32')
+
+
 def shared_zeros_like(arr, name=None):
-    new_var = shared(
-        np.zeros(arr.get_value().shape).astype(theano.config.floatX),
-        broadcastable=arr.broadcastable,
-    )
-    if name is not None:
-        new_var.name = name
-    return new_var
+    arr_new = shared(np.zeros_like(arr.get_value()),
+                     broadcastable=arr.broadcastable)
+    arr_new.name = name
+    return arr_new
+    # if isinstance(arr, np.ndarray):
+    #     shape = arr.get_value().shape
+    #     new_var = shared(
+    #         np.zeros(shape).astype(theano.config.floatX),
+    #         broadcastable=arr.broadcastable,
+    #     )
+    # else:
+    #     new_var = theano.tensor.zeros_like(arr)
+    # if name is not None:
+    #     new_var.name = name
+    # return new_var
 
 
 def shared_random_uniform(shape, low=-1, high=1, name=None,
