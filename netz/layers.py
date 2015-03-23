@@ -91,8 +91,8 @@ class BaseLayer(object):
     def get_l2_cost(self):
         pass
 
-    def get_updates(self, cost, layer):
-        return self.updater.get_updates(cost, layer)
+    def get_updates(self, cost):
+        return self.updater.get_updates(cost, self)
 
 
 class InputLayer(BaseLayer):
