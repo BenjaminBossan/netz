@@ -313,7 +313,7 @@ class DropoutLayer(BaseLayer):
         if any(shape is None for shape in input_shape):
             input_shape = input.shape
 
-        mask = srng.binomial(input_shape, p=q)
+        mask = srng.binomial(input_shape, p=q).astype(theano.config.floatX)
         self.mask_ = mask
         return input * mask
 
