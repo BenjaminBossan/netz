@@ -31,80 +31,67 @@ class GradChecker(object):
         self.num_check = num_check
         self.epsilon = to_32(epsilon)
 
-    def _get_theano_grad(self, param, x, y):
-        net = self.net
-        ys = T.dmatrix('y').astype(theano.config.floatX)
+    @staticmethod
+    def _get_n_indices(shape, n):
+        if len(shape) > 1:
+            indices = list(it.product(*map(range, shape)))
+        else:
+            indices = list(range(shape[0]))
+        np.random.shuffle(indices)
+        return indices[:n]
+
+    def _init(self, x, y):
+        ys = T.matrix('y').astype(theano.config.floatX)
         if x.ndim == 2:
-            xs = T.dmatrix('x').astype(theano.config.floatX)
+            xs = T.matrix('x').astype(theano.config.floatX)
         elif x.ndim == 4:
             xs = T.tensor4('x').astype(theano.config.floatX)
-        y_pred = net.feed_forward(xs, deterministic=True)
-        cost = net.cost_function(ys, y_pred)
-        grad = function(
-            [xs, ys], theano.grad(cost, param)
-        )
-        return grad(x, y)
+        self.xs_, self.ys_ = xs, ys
 
-    def _get_n_numerical_grads(self, param, x, y):
+        encoder = OneHotEncoder(sparse=False, dtype=np.float32)
+        y_ = encoder.fit_transform(y.reshape(-1, 1))
+        self.y_ = y_
+
+        self.is_init_ = True
+
+    def _get_cost_eps(self, param, param_copy, x, y, epsilon, i):
+        param_copy[i] += epsilon
+        param.set_value(param_copy)
+        cost = self.net.test_(x, y)
+        param_copy[i] -= epsilon
+        return cost
+
+    def _get_n_numerical_grads(self, param, x, y, indices):
         epsilon = self.epsilon
         param_copy = deepcopy(param.get_value())
-        num_grads = np.zeros_like(param_copy)
-        if param_copy.ndim > 1:
-            indices = list(it.product(*map(range, param_copy.shape)))
-        else:
-            indices = list(range(param_copy.shape[0]))
-        # only check a random n parameters
-        np.random.shuffle(indices)
-        indices = indices[:self.num_check]
+        numerical_grads = np.zeros_like(param_copy)
         for i in indices:
-            param_pe = deepcopy(param_copy)
-            param_pe[i] += epsilon
-            param.set_value(param_pe)
-            cost_pe = self.net.test_(x, y)
-            param_me = deepcopy(param_copy)
-            param_me[i] -= epsilon
-            param.set_value(param_me)
-            cost_me = self.net.test_(x, y)
-            num_grads[i] = (cost_pe - cost_me) / epsilon / 2
+            cost_plus_eps = self._get_cost_eps(
+                param, param_copy, x, y, epsilon, i)
+            cost_minus_eps = self._get_cost_eps(
+                param, param_copy, x, y, -epsilon, i)
+            numerical_grads[i] = (cost_plus_eps - cost_minus_eps) / epsilon / 2
         # restore parameter
         param.set_value(param_copy)
 
-        return num_grads, indices
-
-    # def spit_grads(self, x, y):
-    #     encoder = OneHotEncoder(sparse=False, dtype=np.float32)
-    #     y_ = encoder.fit_transform(y.reshape(-1, 1))
-    #     params = flatten(self.net.get_layer_params())
-    #     for param in params:
-    #         if not param:
-    #             continue
-    #         theano_grad = self._get_theano_grad(param, x, y_)
-    #         numerical_grad, indices = self._get_n_numerical_grads(
-    #             param, x, y_
-    #         )
-    #         if isinstance(indices[0], tuple):
-    #             indices = zip(*indices)
-    #         yield theano_grad[indices], numerical_grad[indices]
+        return numerical_grads
 
     def spit_grads(self, x, y):
-        encoder = OneHotEncoder(sparse=False, dtype=np.float32)
-        y_ = encoder.fit_transform(y.reshape(-1, 1))
+        if not hasattr(self, 'is_init_'):
+            self._init(x, y)
+        xs, ys, y_ = self.xs_, self.ys_, self.y_
         net = self.net
-        ys = T.dmatrix('y').astype(theano.config.floatX)
-        if x.ndim == 2:
-            xs = T.dmatrix('x').astype(theano.config.floatX)
-        elif x.ndim == 4:
-            xs = T.tensor4('x').astype(theano.config.floatX)
+        cost = net._get_cost_function(xs, ys, True)
         for layer in net.layers:
-            grad = function([xs, ys], layer.get_grads(net.cost_test_))
-            # theano_grads = layer.get_grads(net.cost_test_)
-            theano_grads = grad(x, y_)
+            if not layer.updater:
+                continue
+            get_grads = function([xs, ys], layer.get_grads(cost))
+            theano_grads = get_grads(x, y_)
             for theano_grad, param in zip(theano_grads, layer.get_params()):
-                if not param:
-                    continue
-                numerical_grad, indices = self._get_n_numerical_grads(
-                    param, x, y_
+                indices = self._get_n_indices(param.get_value().shape,
+                                              self.num_check)
+                numerical_grad = self._get_n_numerical_grads(
+                    param, x, y_, indices
                 )
-                if isinstance(indices[0], tuple):
-                    indices = zip(*indices)
-                yield theano_grad[indices], numerical_grad[indices]
+                for idx in indices:
+                    yield theano_grad[idx], numerical_grad[idx]
