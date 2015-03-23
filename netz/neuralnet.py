@@ -78,6 +78,13 @@ class NeuralNet(BaseEstimator):
             if layer1.prev_layer is None:
                 layer1.set_prev_layer(layer0)
 
+    def _get_cost_function(self, X, y, deterministic=True):
+        y_pred = self.feed_forward(X, deterministic=deterministic)
+        y_pred.name = 'y_pred'
+        cost = self.cost_function(y, y_pred)
+        cost += self._get_l2_cost()
+        return cost
+
     def _initialize_functions(self, X, y):
         # symbolic variables
         ys = T.matrix('y').astype(theano.config.floatX)
@@ -90,24 +97,16 @@ class NeuralNet(BaseEstimator):
                              "".format(X.ndim))
 
         # generate train function
-        y_pred = self.feed_forward(Xs, deterministic=False)
-        y_pred.name = 'y_pred'
-        cost = self.cost_function(ys, y_pred)
-        cost += self._get_l2_cost()
-        self.cost_train_ = cost
-        updates = [layer.get_updates(cost, layer)
-                   for layer in self.layers if layer.updater]
+        cost_train = self._get_cost_function(Xs, ys, False)
+        updates = [layer.get_updates(cost_train) for layer in self.layers
+                   if layer.updater]
         updates = flatten(updates)
-        self.train_ = function([Xs, ys], cost, updates=updates,
+        self.train_ = function([Xs, ys], cost_train, updates=updates,
                                allow_input_downcast=True)
 
         # generate test function
-        y_pred = self.feed_forward(Xs, deterministic=True)
-        y_pred.name = 'y_pred'
-        cost = self.cost_function(ys, y_pred)
-        cost += self._get_l2_cost()
-        self.cost_test_ = cost
-        self.test_ = function([Xs, ys], cost,
+        cost_test = self._get_cost_function(Xs, ys, True)
+        self.test_ = function([Xs, ys], cost_test,
                               allow_input_downcast=True)
 
         # generate predict function
