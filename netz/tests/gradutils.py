@@ -54,7 +54,7 @@ class GradChecker(object):
 
         self.is_init_ = True
 
-    def _get_cost_eps(self, param, param_copy, x, y, epsilon, i):
+    def _get_cost_epsilon(self, param, param_copy, x, y, epsilon, i):
         param_copy[i] += epsilon
         param.set_value(param_copy)
         cost = self.net.test_(x, y)
@@ -66,22 +66,24 @@ class GradChecker(object):
         param_copy = deepcopy(param.get_value())
         numerical_grads = np.zeros_like(param_copy)
         for i in indices:
-            cost_plus_eps = self._get_cost_eps(
+            cost_plus_eps = self._get_cost_epsilon(
                 param, param_copy, x, y, epsilon, i)
-            cost_minus_eps = self._get_cost_eps(
+            cost_minus_eps = self._get_cost_epsilon(
                 param, param_copy, x, y, -epsilon, i)
             numerical_grads[i] = (cost_plus_eps - cost_minus_eps) / epsilon / 2
         # restore parameter
         param.set_value(param_copy)
-
         return numerical_grads
 
-    def spit_grads(self, x, y):
+    def get_grads(self, x, y):
         if not hasattr(self, 'is_init_'):
             self._init(x, y)
         xs, ys, y_ = self.xs_, self.ys_, self.y_
         net = self.net
         cost = net._get_cost_function(xs, ys, True)
+
+        theano_grads_all = []
+        numerical_grads_all = []
         for layer in net.layers:
             if not layer.updater:
                 continue
@@ -94,4 +96,6 @@ class GradChecker(object):
                     param, x, y_, indices
                 )
                 for idx in indices:
-                    yield theano_grad[idx], numerical_grad[idx]
+                    theano_grads_all.append(theano_grad[idx])
+                    numerical_grads_all.append(numerical_grad[idx])
+        return theano_grads_all, numerical_grads_all
