@@ -44,11 +44,8 @@ class BaseNetTest():
     def test_grad_custom(self, net):
         gc = GradChecker(net, NUM_CHECK, EPSILON)
         theano_grads_all, numerical_grads_all = gc.get_grads(X, y)
-
-        assert np.allclose(theano_grads_all, numerical_grads_all, atol=ATOL)
-        # exclude error that gradients are just 0
-        assert not np.allclose(theano_grads_all, 0., atol=ATOL)
-        assert not np.allclose(numerical_grads_all, 0., atol=ATOL)
+        difference = relative_error(theano_grads_all, numerical_grads_all, 0.1)
+        assert np.allclose(difference, 0., atol=ATOL)
 
 
 class BaseNetTest2D():
