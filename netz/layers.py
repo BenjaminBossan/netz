@@ -13,6 +13,7 @@ from theano.tensor.signal.downsample import max_pool_2d
 
 from nonlinearities import sigmoid
 from nonlinearities import softmax
+from utils import shared_random_normal
 from utils import shared_random_uniform
 
 srng = RandomStreams(seed=17411)
@@ -80,13 +81,36 @@ class BaseLayer(object):
         for param, update in zip(self.get_params(), updates):
             param.set_value(update)
 
-    def create_param(self, shape, limits=(None, None),
-                     name=None, broadcastable=None):
-        low, high = limits
-        high = high if high is not None else np.sqrt(6 / sum(shape))
-        low = low if low is not None else -high
-        return shared_random_uniform(shape=shape, low=low, high=high,
-                                     name=name, broadcastable=broadcastable)
+    def create_param(self, shape, scheme='Xavier', name=None,
+                     broadcastable=None):
+        """ Currently 3 supported schemes:
+
+        * He (default) : He et al. 2015
+          ~ N[+/- sqrt(2 / num_units)]
+        * Xavier : Glorot, Bengio 2010
+          ~ U[+/- sqrt(6 / (fan_in + fan_out))]
+        * zeros
+          A tensor of just zeros
+
+        """
+        schemes_known = ['He', 'Xavier', 'Zeros']
+        scheme_variants = schemes_known + [s.lower() for s in schemes_known]
+        if scheme not in scheme_variants:
+            raise TypeError("The proposed scheme {} is not supported, we only "
+                            "support {}".format(', '.join(schemes_all)))
+
+        if scheme.lower() == 'he':
+            num_units = reduce(op.mul, shape)
+            return shared_random_normal(shape, num_units, name, broadcastable)
+        elif scheme.lower() == 'xavier':
+            # assumptions work for dense and conv layers
+            receptive_field_size = np.prod(shape[2:])
+            high = np.sqrt(6 / reduce(op.add, shape[:2]) /
+                           receptive_field_size)
+            low = -high
+            return shared_random_uniform(shape, low, high, name, broadcastable)
+        elif scheme.lower() == 'zeros':
+            return shared_random_uniform(shape, 0., 0., name, broadcastable)
 
     def get_l2_cost(self):
         pass
@@ -343,24 +367,24 @@ class BatchNormLayer(BaseLayer):
 
         self.mean_ema_ = self.create_param(
             shape=shape,
-            limits=(0., 0.),
+            scheme='zeros',
             name='mean_ema_'.format(self.name),
             broadcastable=ema_broadcastable,
         )
         self.std_ema_ = self.create_param(
             shape=shape,
-            limits=(0., 0.),
+            scheme='zeros',
             name='std_ema_'.format(self.name),
             broadcastable=ema_broadcastable,
         )
         self.gamma = self.create_param(
             shape=shape,
-            limits=(0.95, 1.05),
+            scheme='zeros',
             name='gamma_{}'.format(self.name),
         )
         self.beta = self.create_param(
             shape=shape,
-            limits=(0., 0.),
+            scheme='zeros',
             name='beta_{}'.format(self.name),
         )
 
