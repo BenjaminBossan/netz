@@ -21,13 +21,14 @@ from ..updaters import RMSProp
 from ..updaters import SGD
 from gradutils import GradChecker
 from gradutils import verify_grad
+from gradutils import relative_error
 
 
 np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
 NUM_CHECK = 10
 EPSILON = 1e-3
-ATOL = 1e-3
+ATOL = 5e-3
 # fake data
 X = np.random.rand(10, 8 * 4 * 4).astype(np.float32)
 X2D = X.reshape(-1, 8, 4, 4)
