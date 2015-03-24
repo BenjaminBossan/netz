@@ -22,23 +22,20 @@ def shared_zeros_like(arr, name=None):
                      broadcastable=arr.broadcastable)
     arr_new.name = name
     return arr_new
-    # if isinstance(arr, np.ndarray):
-    #     shape = arr.get_value().shape
-    #     new_var = shared(
-    #         np.zeros(shape).astype(theano.config.floatX),
-    #         broadcastable=arr.broadcastable,
-    #     )
-    # else:
-    #     new_var = theano.tensor.zeros_like(arr)
-    # if name is not None:
-    #     new_var.name = name
-    # return new_var
 
 
 def shared_random_uniform(shape, low=-1, high=1, name=None,
                           broadcastable=None):
     arr = np.random.uniform(low=low, high=high,
                             size=shape).astype(theano.config.floatX)
+    new_var = shared(arr, broadcastable=broadcastable)
+    if name is not None:
+        new_var.name = name
+    return new_var
+
+
+def shared_random_normal(shape, factor=1., name=None, broadcastable=None):
+    arr = factor * np.random.randn(*shape).astype(theano.config.floatX)
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
