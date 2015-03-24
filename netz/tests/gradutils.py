@@ -15,6 +15,12 @@ from ..utils import to_32
 np.random.seed(17411)
 
 
+def relative_error(v0, v1, epsilon):
+    numerator = np.abs([e0 - e1 for e0, e1 in zip(v0, v1)])
+    denominator = np.abs(v0) + np.abs(v1) + epsilon
+    return numerator / denominator
+
+
 def verify_grad(net, x, y, abs_tol=None):
     def fun(x, y):
         cost = net.cost_function(y, net.feed_forward(x, deterministic=True))
