@@ -71,7 +71,7 @@ class TestSgdNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
-                  DenseLayer(100, lambda2=0.01),
+                  DenseLayer(50, lambda2=0.01),
                   OutputLayer()]
         net = NeuralNet(
             layers, cost_function=crossentropy,
@@ -88,7 +88,7 @@ class TestMomentumDifferentialUpdateNet(BaseNetTest):
     def net(self):
         updater_dense = Nesterov(momentum=0.95)
         layers = [InputLayer(),
-                  DenseLayer(32),
+                  DenseLayer(7),
                   DenseLayer(24, updater=updater_dense),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
@@ -102,7 +102,7 @@ class TestAdadeltaL2RegularizationNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
-                  DenseLayer(32, lambda2=0.01),
+                  DenseLayer(6, lambda2=0.01),
                   DropoutLayer(),
                   DenseLayer(24, lambda2=0.01),
                   OutputLayer()]
@@ -117,7 +117,7 @@ class TestAdagradNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
-                  DenseLayer(32),
+                  DenseLayer(7),
                   DropoutLayer(),
                   DenseLayer(24),
                   OutputLayer()]
@@ -132,7 +132,7 @@ class TestConvDropoutNet(BaseNetTest2D):
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
-                  Conv2DLayer(3, (4, 4), nonlinearity=rectify),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
                   MaxPool2DLayer(),
                   DropoutLayer(p=0.2),
                   DenseLayer(10),
