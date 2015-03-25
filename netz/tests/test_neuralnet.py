@@ -60,6 +60,8 @@ class TestVanillaNet():
 
 
 class TestOverfittingNet():
+    n = 10  # number of samples
+
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
@@ -70,7 +72,7 @@ class TestOverfittingNet():
             updater=Adadelta(),
             eval_size=0.5,
         )
-        net.fit(X[:10], y[:10], max_iter=100)
+        net.fit(X[:self.n], y[:self.n], max_iter=100)
         return net
 
     def test_net_learns_small_sample_by_heart(self, net):
