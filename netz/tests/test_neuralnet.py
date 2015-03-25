@@ -18,6 +18,8 @@ np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
 NUM_CHECK = 3
 EPSILON = 1e-6
+MAX_ITER = 20
+# data
 df = pd.read_csv('netz/tests/mnist_short.csv')
 X = (df.values[:, 1:] / 255).astype(np.float32)
 X = (X - X.mean()) / X.std()
@@ -49,7 +51,7 @@ class TestSgdNet():
             updater=SGD(),
             eval_size=0,
         )
-        net.fit(X, y, max_iter=1)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
     def test_names(self, net):
@@ -95,7 +97,7 @@ class TestConcatNet():
             updater=SGD(),
             eval_size=0
         )
-        net.fit(X, y, max_iter=1)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
     def test_connections(self, net):
@@ -131,8 +133,8 @@ class TestReguNet():
         net0 = NeuralNet(layers0)
         net1 = NeuralNet(layers1)
 
-        net0.fit(X, y, max_iter=10)
-        net1.fit(X, y, max_iter=10)
+        net0.fit(X, y, max_iter=MAX_ITER)
+        net1.fit(X, y, max_iter=MAX_ITER)
         return net0, net1
 
     def test_l2_regu_weights(self, nets):

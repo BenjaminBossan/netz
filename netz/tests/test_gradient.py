@@ -28,7 +28,8 @@ np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
 NUM_CHECK = 10
 EPSILON = 1e-3
-ATOL = 5e-3
+ATOL = 5e-4
+MAX_ITER = 20
 # fake data
 X = 2 * np.random.rand(10, 8 * 4 * 4).astype(np.float32)
 X -= X.mean()
@@ -76,7 +77,7 @@ class TestSgdNet(BaseNetTest):
             updater=SGD(0.02),
             eval_size=0
         )
-        net.fit(X, y, max_iter=3)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
 
@@ -91,7 +92,7 @@ class TestMomentumDifferentialUpdateNet(BaseNetTest):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Momentum(learn_rate=0.001))
-        net.fit(X, y, max_iter=3)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
 
@@ -106,7 +107,7 @@ class TestAdadeltaL2RegularizationNet(BaseNetTest):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Adadelta())
-        net.fit(X, y, max_iter=3)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
 
@@ -121,7 +122,7 @@ class TestAdagradNet(BaseNetTest):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Adagrad())
-        net.fit(X, y, max_iter=3)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
 
 
@@ -137,7 +138,7 @@ class TestConvDropoutNet(BaseNetTest2D):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Nesterov())
-        net.fit(X2D, y, max_iter=3)
+        net.fit(X2D, y, max_iter=MAX_ITER)
         return net
 
 
@@ -151,5 +152,5 @@ class TestRMSPropL2RegularizationNet(BaseNetTest):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=RMSProp(rho=0.9))
-        net.fit(X, y, max_iter=3)
+        net.fit(X, y, max_iter=MAX_ITER)
         return net
