@@ -125,7 +125,7 @@ class TestReguNet():
                    DenseLayer(100),
                    OutputLayer()]
         layers1 = [InputLayer(),
-                   DenseLayer(100, lambda2=0.1),
+                   DenseLayer(100, lambda2=0.2),
                    OutputLayer()]
 
         net0 = NeuralNet(layers0)
