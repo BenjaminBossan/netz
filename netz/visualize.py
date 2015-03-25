@@ -1,3 +1,13 @@
+"""Utilifity functions for plotting aspects of the neural net.
+
+To do:
+
+* Plot (log of) update norm over weight norm by layer with a vertical
+  line at 1e-3 to indicate that this is the expected value.
+* Plot Variance of activation across layers with a horizontal line to
+  indicate that they should be similar.
+
+"""
 # -*- coding: utf-8 -*-
 from __future__ import division
 import itertools as it
