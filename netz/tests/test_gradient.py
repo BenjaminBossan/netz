@@ -30,7 +30,8 @@ NUM_CHECK = 10
 EPSILON = 1e-3
 ATOL = 5e-3
 # fake data
-X = np.random.rand(10, 8 * 4 * 4).astype(np.float32)
+X = 2 * np.random.rand(10, 8 * 4 * 4).astype(np.float32)
+X -= X.mean()
 X2D = X.reshape(-1, 8, 4, 4)
 y = np.random.randint(low=0, high=3, size=10).astype(np.float32)
 
@@ -45,7 +46,7 @@ class BaseNetTest():
     def test_grad_custom(self, net):
         gc = GradChecker(net, NUM_CHECK, EPSILON)
         theano_grads_all, numerical_grads_all = gc.get_grads(X, y)
-        difference = relative_error(theano_grads_all, numerical_grads_all, 0.1)
+        difference = relative_error(theano_grads_all, numerical_grads_all, 1)
         assert np.allclose(difference, 0., atol=ATOL)
 
 
@@ -59,11 +60,8 @@ class BaseNetTest2D():
     def test_grad_custom(self, net):
         gc = GradChecker(net, NUM_CHECK, EPSILON)
         theano_grads_all, numerical_grads_all = gc.get_grads(X2D, y)
-
-        assert np.allclose(theano_grads_all, numerical_grads_all, atol=ATOL)
-        # exclude error that gradients are just 0
-        assert not np.allclose(theano_grads_all, 0., atol=ATOL)
-        assert not np.allclose(numerical_grads_all, 0., atol=ATOL)
+        difference = relative_error(theano_grads_all, numerical_grads_all, 1)
+        assert np.allclose(difference, 0., atol=ATOL)
 
 
 @pytest.mark.slow
@@ -143,15 +141,15 @@ class TestConvDropoutNet(BaseNetTest2D):
         return net
 
 
-# @pytest.mark.slow
-# class TestRMSPropL2RegularizationNet(BaseNetTest):
-#     @pytest.fixture(scope='session')
-#     def net(self):
-#         layers = [InputLayer(),
-#                   DenseLayer(32, nonlinearity=rectify, lambda2=0.001),
-#                   DenseLayer(24, nonlinearity=rectify, lambda2=0.001),
-#                   OutputLayer()]
-#         net = NeuralNet(layers, cost_function=crossentropy,
-#                         updater=RMSProp())
-#         net.fit(X, y, max_iter=3)
-#         return net
+@pytest.mark.slow
+class TestRMSPropL2RegularizationNet(BaseNetTest):
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(7, nonlinearity=rectify, lambda2=0.001),
+                  DenseLayer(24, lambda2=0.001),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        updater=RMSProp(rho=0.9))
+        net.fit(X, y, max_iter=3)
+        return net
