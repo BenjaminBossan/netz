@@ -11,6 +11,7 @@ from ..layers import InputConcatLayer
 from ..layers import InputLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
+from ..updaters import Adadelta
 from ..updaters import Momentum
 from ..updaters import SGD
 
@@ -37,6 +38,44 @@ def check_relative_diff_similar(v0, v1, atol=0.2):
     relative_diff = v1 / v0
     mean_diff = np.mean(relative_diff)
     return np.allclose(mean_diff, relative_diff, atol=atol)
+
+
+class TestVanillaNet():
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(100),
+                  OutputLayer()]
+        net = NeuralNet(
+            layers, cost_function=crossentropy,
+            eval_size=0.5,
+        )
+        net.fit(X, y, max_iter=100)
+        return net
+
+    def test_initial_loss(self, net):
+        # At initialization, the cost should be close to random:
+        assert np.allclose(net.train_history_[0], -np.log(1 / 10), atol=0.5)
+        assert np.allclose(net.valid_history_[0], -np.log(1 / 10), atol=0.5)
+
+
+class TestOverfittingNet():
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(500),
+                  OutputLayer()]
+        net = NeuralNet(
+            layers, cost_function=crossentropy,
+            updater=Adadelta(),
+            eval_size=0.5,
+        )
+        net.fit(X[:10], y[:10], max_iter=100)
+        return net
+
+    def test_net_learns_small_sample_by_heart(self, net):
+        assert np.allclose(net.train_history_[-1], 0., atol=1e-2)
+        assert not np.allclose(net.valid_history_[-1], 0., atol=1e-2)
 
 
 class TestSgdNet():
