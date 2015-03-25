@@ -8,7 +8,7 @@ from theano.tensor.nnet import softmax
 __all__ = ["sigmoid", "identity", "softmax"]
 
 
-def identity(self, x):
+def identity(x):
     return x
 
 
