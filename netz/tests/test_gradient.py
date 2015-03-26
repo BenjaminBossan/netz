@@ -19,9 +19,9 @@ from ..updaters import Momentum
 from ..updaters import Nesterov
 from ..updaters import RMSProp
 from ..updaters import SGD
-from gradutils import GradChecker
-from gradutils import verify_grad
-from gradutils import relative_error
+from tutils import GradChecker
+from tutils import verify_grad
+from tutils import relative_error
 
 
 np.random.seed(17411)
