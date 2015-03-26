@@ -6,14 +6,19 @@ import pandas as pd
 import pytest
 
 from ..costfunctions import crossentropy
+from ..layers import Conv2DLayer
 from ..layers import DenseLayer
+from ..layers import DropoutLayer
 from ..layers import InputConcatLayer
 from ..layers import InputLayer
+from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
+from ..nonlinearities import rectify
 from ..updaters import Adadelta
 from ..updaters import Momentum
 from ..updaters import SGD
+from ..utils import occlusion_heatmap
 from tutils import check_weights_shrink
 from tutils import check_relative_diff_similar
 
@@ -189,3 +194,28 @@ class TestReguNet():
         b0 = np.concatenate((b0[:split], b0[-split:]))
         b1 = np.concatenate((b1[:split], b1[-split:]))
         assert np.allclose(b0 - b1, 0, atol=1e-3)
+
+
+class TestConvDropoutNet():
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
+                  MaxPool2DLayer(),
+                  DropoutLayer(p=0.2),
+                  DenseLayer(10),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        updater=Adadelta())
+        net.fit(X2D, y, max_iter=20)
+        return net
+
+    def test_occlusion_min_not_in_image_border(self, net):
+        border_size = 5
+        x_size = X2D.shape[3]
+        y_size = X2D.shape[2]
+        for i in range(10):
+            heatmap = occlusion_heatmap(net, X2D[i:i+1], y[i])
+            coord_y, coord_x = np.nonzero(heatmap == heatmap.min())
+            assert border_size < coord_x < x_size - border_size
+            assert border_size < coord_y < y_size - border_size
