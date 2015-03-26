@@ -99,7 +99,7 @@ def plot_conv_activity(layer, x, figsize=(6, 8), *args, **kwargs):
                               interpolation='nearest', *args, **kwargs)
 
 
-def plot_occlusion(net, X, y, square_length=7, figsize=(9, 3)):
+def plot_occlusion(net, X, y, square_length=7, figsize=(9, None)):
     """Plot which parts of an image are particularly import for the
     net to classify the image correctly.
 
@@ -127,22 +127,25 @@ def plot_occlusion(net, X, y, square_length=7, figsize=(9, 3)):
     if (X.ndim != 4):
         raise ValueError("This function requires the input data to be of "
                          "shape (b, c, x, y), instead got {}".format(X.shape))
-    for n in range(X.shape[0]):
+    num_images = X.shape[0]
+    if figsize[1] is None:
+        figsize = (figsize[0], num_images * figsize[0] / 3)
+    figs, axes = plt.subplots(num_images, 3, figsize=figsize)
+    for ax in axes.flatten():
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis('off')
+    for n in range(num_images):
         heat_img = occlusion_heatmap(
             net, X[n:n + 1, :, :, :], y[n], square_length
         )
         img = X[n, :, :, :].mean(0)
-        figs, axes = plt.subplots(1, 3, figsize=figsize)
-        for ax in axes.flatten():
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.axis('off')
-        axes[0].imshow(-img, interpolation='nearest', cmap='gray')
-        axes[0].set_title('image')
-        axes[1].imshow(-heat_img, interpolation='nearest', cmap='Reds')
-        axes[1].set_title('critical parts')
-        axes[2].imshow(-img, interpolation='nearest', cmap='gray')
-        axes[2].imshow(-heat_img, interpolation='nearest', cmap='Reds',
-                       alpha=0.75)
-        axes[2].set_title('super-imposed')
-        plt.show()
+        axes[n, 0].imshow(-img, interpolation='nearest', cmap='gray')
+        axes[n, 0].set_title('image')
+        axes[n, 1].imshow(-heat_img, interpolation='nearest', cmap='Reds')
+        axes[n, 1].set_title('critical parts')
+        axes[n, 2].imshow(-img, interpolation='nearest', cmap='gray')
+        axes[n, 2].imshow(-heat_img, interpolation='nearest', cmap='Reds',
+                          alpha=0.75)
+        axes[n, 2].set_title('super-imposed')
+    plt.show()
