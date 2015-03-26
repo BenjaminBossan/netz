@@ -31,6 +31,17 @@ def verify_grad(net, x, y, abs_tol=None):
     T.verify_grad(fun, [x, y_], rng=np.random.RandomState(42), abs_tol=abs_tol)
 
 
+def check_weights_shrink(v0, v1):
+    relative_diff = v1 / v0
+    return (0 < relative_diff).all() & (relative_diff < 1).all()
+
+
+def check_relative_diff_similar(v0, v1, atol=0.2):
+    relative_diff = v1 / v0
+    mean_diff = np.mean(relative_diff)
+    return np.allclose(mean_diff, relative_diff, atol=atol)
+
+
 class GradChecker(object):
     def __init__(self, net, num_check=10, epsilon=1e-6):
         self.net = net

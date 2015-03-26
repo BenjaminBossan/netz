@@ -14,6 +14,8 @@ from ..neuralnet import NeuralNet
 from ..updaters import Adadelta
 from ..updaters import Momentum
 from ..updaters import SGD
+from tutils import check_weights_shrink
+from tutils import check_relative_diff_similar
 
 np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
@@ -27,17 +29,6 @@ X = (X - X.mean()) / X.std()
 y = df.values[:, 0].astype(np.int32)
 X2D = X.reshape(-1, 1, 28, 28)
 NUM_CLASSES = len(np.unique(y))
-
-
-def check_weights_shrink(v0, v1):
-    relative_diff = v1 / v0
-    return (0 < relative_diff).all() & (relative_diff < 1).all()
-
-
-def check_relative_diff_similar(v0, v1, atol=0.2):
-    relative_diff = v1 / v0
-    mean_diff = np.mean(relative_diff)
-    return np.allclose(mean_diff, relative_diff, atol=atol)
 
 
 class TestVanillaNet():
