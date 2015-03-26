@@ -17,6 +17,9 @@ import numpy as np
 from theano import function
 from theano import tensor as T
 
+from utils import occlusion_heatmap
+
+
 CMAPS = ['gray', 'afmhot', 'autumn', 'bone', 'cool', 'copper',
          'gist_heat', 'hot', 'pink', 'spring', 'summer', 'winter']
 CMAPS = it.cycle(CMAPS)
@@ -94,3 +97,52 @@ def plot_conv_activity(layer, x, figsize=(6, 8), *args, **kwargs):
                              "have 2, instead got {}".format(ndim))
         axes[r + 1, c].imshow(-activity[0][i], cmap='gray',
                               interpolation='nearest', *args, **kwargs)
+
+
+def plot_occlusion(net, X, y, square_length=7, figsize=(9, 3)):
+    """Plot which parts of an image are particularly import for the
+    net to classify the image correctly.
+
+    See paper: Zeiler, Fergus 2013
+
+    Parameters
+    ----------
+    net : NeuralNet instance
+      The neural net to test.
+
+    X : np.array
+      The input data, should be of shape (b, c, x, y). Only makes
+      sense with image data.
+
+    y : np.array
+      The true values of the images.
+
+    square_length : int (default=7)
+      The length of the side of the square that occludes the image.
+
+    figsize : tuple (int, int)
+      Size of the figure.
+
+    """
+    if (X.ndim != 4):
+        raise ValueError("This function requires the input data to be of "
+                         "shape (b, c, x, y), instead got {}".format(X.shape))
+    for n in range(X.shape[0]):
+        heat_img = occlusion_heatmap(
+            net, X[n:n + 1, :, :, :], y[n], square_length
+        )
+        img = X[n, :, :, :].mean(0)
+        figs, axes = plt.subplots(1, 3, figsize=figsize)
+        for ax in axes.flatten():
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.axis('off')
+        axes[0].imshow(-img, interpolation='nearest', cmap='gray')
+        axes[0].set_title('image')
+        axes[1].imshow(-heat_img, interpolation='nearest', cmap='Reds')
+        axes[1].set_title('critical parts')
+        axes[2].imshow(-img, interpolation='nearest', cmap='gray')
+        axes[2].imshow(-heat_img, interpolation='nearest', cmap='Reds',
+                       alpha=0.75)
+        axes[2].set_title('super-imposed')
+        plt.show()

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
+import itertools as it
 
 import numpy as np
 import theano
@@ -58,3 +59,55 @@ def flatten(lst):
         for elem in sublst:
             flat_lst.append(elem)
     return flat_lst
+
+
+def occlusion_heatmap(net, x, y, square_length=7):
+    """An occlusion test that checks an image for its critical parts.
+
+    In this test, a square part of the image is occluded (i.e. set to
+    0) and then the net is tested for its propensity to predict the
+    correct label. One should expect that this propensity shrinks of
+    critical parts of the image are occluded. If not, this indicates
+    overfitting.
+
+    Currently, all color channels are occluded at the same time.
+
+    See paper: Zeiler, Fergus 2013
+
+    Parameters
+    ----------
+    net : NeuralNet instance
+      The neural net to test.
+
+    x : np.array
+      The input data, should be of shape (1, c, x, y). Only makes
+      sense with image data.
+
+    y : np.array
+      The true value of the image.
+
+    square_length : int (default=7)
+      The length of the side of the square that occludes the image.
+
+    Results
+    -------
+    heat_array : np.array (with same size as image)
+      An 2D np.array that at each point (i, j) contains the predicted
+      probability of the correct class if the image is occluded by a
+      square with center (i, j).
+
+    """
+    if (x.ndim != 4) or x.shape[0] != 1:
+        raise ValueError("This function requires the input data to be of "
+                         "shape (1, c, x, y), instead got {}".format(x.shape))
+    img = x[0].copy()
+    shape = x.shape
+    heat_array = np.zeros(shape[2:])
+    pad = square_length // 2
+    for i, j in it.product(*map(range, shape[2:])):
+        x_padded = np.pad(img, ((0, 0), (pad, pad), (pad, pad)), 'constant')
+        x_padded[:, i:i + square_length, j:j + square_length] = 0.
+        x_occluded = x_padded[:, pad:-pad, pad:-pad]
+        prob = net.predict_proba(x_occluded.reshape(1, 1, shape[2], shape[3]))
+        heat_array[i, j] = prob[0, y]
+    return heat_array
