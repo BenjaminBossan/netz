@@ -14,6 +14,7 @@ import itertools as it
 
 import matplotlib.pyplot as plt
 import numpy as np
+import theano
 from theano import function
 from theano import tensor as T
 
@@ -73,7 +74,7 @@ def plot_conv_activity(layer, x, figsize=(6, 8), *args, **kwargs):
     """
     if x.shape[0] != 1:
         raise ValueError("Only one sample can be plotted at a time.")
-    xs = T.tensor4('xs')
+    xs = T.tensor4('xs').astype(theano.config.floatX)
     get_activity = function([xs], layer.get_output(xs))
     activity = get_activity(x)
     shape = activity.shape
