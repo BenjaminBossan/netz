@@ -14,4 +14,4 @@ Heavily inspired by:
 Look here for an example usage:
 
 * [MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/MNIST.ipynb)
-* [Convolutions](https://github.com/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
+* [Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
