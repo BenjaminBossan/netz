@@ -84,7 +84,7 @@ class TestSharedRandomUniform:
         arr = shared_random_uniform((13, 12, 11, 10), low=0, high=1)
         arr = arr.get_value().flatten()
         p_val = kstest(arr, 'uniform')[1]
-        assert p_val > 0.1
+        assert p_val > 0.05
 
     @pytest.mark.parametrize('broadcastable', [
         (False, False, False),
@@ -123,4 +123,4 @@ class TestSharedRandomNormal:
         arr = shared_random_normal((13, 12, 11, 10))
         arr = arr.get_value().flatten()
         p_val = kstest(arr, 'norm')[1]
-        assert p_val > 0.1
+        assert p_val > 0.05
