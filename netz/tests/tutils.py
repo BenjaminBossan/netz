@@ -9,7 +9,6 @@ import theano
 from theano import function
 from theano import tensor as T
 
-from ..utils import flatten
 from ..utils import to_32
 
 np.random.seed(17411)
