@@ -35,6 +35,22 @@ def shared_random_uniform(shape, low=-1, high=1, name=None,
     return new_var
 
 
+def shared_zeros(shape, name=None, broadcastable=None):
+    arr = np.zeros(shape).astype(theano.config.floatX)
+    new_var = shared(arr, broadcastable=broadcastable)
+    if name is not None:
+        new_var.name = name
+    return new_var
+
+
+def shared_ones(shape, name=None, broadcastable=None):
+    arr = np.ones(shape).astype(theano.config.floatX)
+    new_var = shared(arr, broadcastable=broadcastable)
+    if name is not None:
+        new_var.name = name
+    return new_var
+
+
 def shared_random_normal(shape, factor=1., name=None, broadcastable=None):
     arr = factor * np.random.randn(*shape).astype(theano.config.floatX)
     new_var = shared(arr, broadcastable=broadcastable)

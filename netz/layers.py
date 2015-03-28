@@ -93,13 +93,15 @@ class BaseLayer(object):
           ~ U[+/- sqrt(6 / (fan_in + fan_out))]
         * zeros
           A tensor of just zeros
+        * ones
+          A tensor of just ones
 
         """
-        schemes_known = ['He', 'Xavier', 'Zeros']
+        schemes_known = ['He', 'Xavier', 'Zeros', 'Ones']
         scheme_variants = schemes_known + [s.lower() for s in schemes_known]
         if scheme not in scheme_variants:
             raise TypeError("The proposed scheme {} is not supported, we only "
-                            "support {}".format(', '.join(schemes_all)))
+                            "support {}".format(', '.join(schemes_known)))
 
         if scheme.lower() == 'he':
             num_units = reduce(op.mul, shape)
@@ -112,7 +114,9 @@ class BaseLayer(object):
             low = -high
             return shared_random_uniform(shape, low, high, name, broadcastable)
         elif scheme.lower() == 'zeros':
-            return shared_random_uniform(shape, 0., 0., name, broadcastable)
+            return shared_zeros(shape, name, broadcastable)
+        elif scheme.lower() == 'ones':
+            return shared_ones(shape, name, broadcastable)
 
     def get_l2_cost(self):
         pass
