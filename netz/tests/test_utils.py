@@ -6,7 +6,7 @@ import numpy as np
 from scipy.stats import kstest
 from theano import shared
 
-from gradutils import relative_error
+from tutils import relative_error
 from ..utils import flatten
 from ..utils import shared_random_normal
 from ..utils import shared_random_uniform
