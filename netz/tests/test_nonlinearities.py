@@ -36,5 +36,5 @@ def test_sigmoid(x, y):
     xt = sigm(x)
     assert np.allclose(xt, y, atol=1e-3)
     xs = 1 - sigm(-x)
-    assert np.allclose(xt, y, atol=1e-3)
+    assert np.allclose(xs, y, atol=1e-3)
     
