@@ -9,6 +9,7 @@ from ..layers import BatchNormLayer
 from ..layers import Conv2DLayer
 from ..layers import DenseLayer
 from ..layers import DropoutLayer
+from ..layers import FeaturePoolLayer
 from ..layers import InputLayer
 from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
@@ -98,13 +99,14 @@ class TestMomentumDifferentialUpdateNet(BaseNetTest):
 
 
 @pytest.mark.slow
-class TestAdadeltaL2RegularizationNet(BaseNetTest):
+class TestAdadeltaFeaturePoolNet(BaseNetTest):
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
-                  DenseLayer(6, lambda2=0.01),
+                  DenseLayer(6),
                   DropoutLayer(),
-                  DenseLayer(24, lambda2=0.01),
+                  DenseLayer(24),
+                  FeaturePoolLayer(),
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Adadelta())
