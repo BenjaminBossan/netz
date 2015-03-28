@@ -5,10 +5,11 @@ import numpy as np
 import pytest
 
 from ..costfunctions import crossentropy
-from ..layers import InputLayer
+from ..layers import BatchNormLayer
 from ..layers import Conv2DLayer
 from ..layers import DenseLayer
 from ..layers import DropoutLayer
+from ..layers import InputLayer
 from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
@@ -152,5 +153,21 @@ class TestRMSPropL2RegularizationNet(BaseNetTest):
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=RMSProp(rho=0.9))
+        net.fit(X, y, max_iter=MAX_ITER)
+        return net
+
+
+@pytest.mark.slow
+class TestBatchNormNet(BaseNetTest):
+    @pytest.fixture(scope='session')
+    def net(self):
+        layers = [InputLayer(),
+                  DenseLayer(7),
+                  BatchNormLayer(),
+                  DropoutLayer(),
+                  DenseLayer(24),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        updater=Nesterov())
         net.fit(X, y, max_iter=MAX_ITER)
         return net
