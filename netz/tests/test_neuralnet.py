@@ -211,11 +211,11 @@ class TestConvDropoutNet():
         return net
 
     def test_occlusion_min_not_in_image_border(self, net):
-        border_size = 5
+        border_size = 4
         x_size = X2D.shape[3]
         y_size = X2D.shape[2]
         for i in range(10):
-            heatmap = occlusion_heatmap(net, X2D[i:i+1], y[i])
+            heatmap = occlusion_heatmap(net, X2D[i:i + 1], y[i])
             coord_y, coord_x = np.nonzero(heatmap == heatmap.min())
             assert border_size < coord_x < x_size - border_size
             assert border_size < coord_y < y_size - border_size
