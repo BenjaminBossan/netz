@@ -31,7 +31,7 @@ def plot_loss(net, *args, **kwargs):
     plt.plot(net.valid_history_, label='valid', *args, **kwargs)
     plt.xlabel('epoch')
     plt.ylabel('loss')
-    plt.legend()
+    plt.legend(loc='best')
 
 
 def plot_conv_weights(layer, figsize=(6, 6), *args, **kwargs):
@@ -140,13 +140,14 @@ def plot_occlusion(net, X, y, square_length=7, figsize=(9, None)):
         heat_img = occlusion_heatmap(
             net, X[n:n + 1, :, :, :], y[n], square_length
         )
+
+        ax = axes if num_images == 1 else axes[n]
         img = X[n, :, :, :].mean(0)
-        axes[n, 0].imshow(-img, interpolation='nearest', cmap='gray')
-        axes[n, 0].set_title('image')
-        axes[n, 1].imshow(-heat_img, interpolation='nearest', cmap='Reds')
-        axes[n, 1].set_title('critical parts')
-        axes[n, 2].imshow(-img, interpolation='nearest', cmap='gray')
-        axes[n, 2].imshow(-heat_img, interpolation='nearest', cmap='Reds',
-                          alpha=0.75)
-        axes[n, 2].set_title('super-imposed')
-    plt.show()
+        ax[0].imshow(-img, interpolation='nearest', cmap='gray')
+        ax[0].set_title('image')
+        ax[1].imshow(-heat_img, interpolation='nearest', cmap='Reds')
+        ax[1].set_title('critical parts')
+        ax[2].imshow(-img, interpolation='nearest', cmap='gray')
+        ax[2].imshow(-heat_img, interpolation='nearest', cmap='Reds',
+                     alpha=0.75)
+        ax[2].set_title('super-imposed')
