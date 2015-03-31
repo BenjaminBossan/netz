@@ -3,9 +3,10 @@ from __future__ import division
 
 from theano.tensor.nnet import sigmoid
 from theano.tensor.nnet import softmax
+from theano.tensor import tanh
 
 
-__all__ = ["sigmoid", "identity", "softmax"]
+__all__ = ["identity", "sigmoid", "softmax", "tanh"]
 
 
 def identity(x):
