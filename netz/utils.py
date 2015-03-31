@@ -5,6 +5,7 @@ import itertools as it
 import numpy as np
 import theano
 from theano import shared
+floatX = theano.config.floatX
 
 
 def to_32(x):
@@ -28,7 +29,7 @@ def shared_zeros_like(arr, name=None):
 def shared_random_uniform(shape, low=-1, high=1, name=None,
                           broadcastable=None):
     arr = np.random.uniform(low=low, high=high,
-                            size=shape).astype(theano.config.floatX)
+                            size=shape).astype(floatX)
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
@@ -36,7 +37,7 @@ def shared_random_uniform(shape, low=-1, high=1, name=None,
 
 
 def shared_zeros(shape, name=None, broadcastable=None):
-    arr = np.zeros(shape).astype(theano.config.floatX)
+    arr = np.zeros(shape).astype(floatX)
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
@@ -44,7 +45,7 @@ def shared_zeros(shape, name=None, broadcastable=None):
 
 
 def shared_ones(shape, name=None, broadcastable=None):
-    arr = np.ones(shape).astype(theano.config.floatX)
+    arr = np.ones(shape).astype(floatX)
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
