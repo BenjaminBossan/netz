@@ -14,6 +14,7 @@ from theano.tensor.signal.downsample import max_pool_2d
 from nonlinearities import sigmoid
 from nonlinearities import softmax
 from utils import shared_random_normal
+from utils import shared_random_orthogonal
 from utils import shared_random_uniform
 from utils import shared_ones
 from utils import shared_zeros
@@ -31,6 +32,7 @@ class BaseLayer(object):
             name=None,
             updater=None,
             lambda2=0,
+            init_scheme='Xavier',
     ):
         self.prev_layer = prev_layer
         self.next_layer = next_layer
@@ -39,6 +41,7 @@ class BaseLayer(object):
         self.name = name
         self.updater = updater
         self.lambda2 = lambda2
+        self.init_scheme = init_scheme
 
     def initialize(self, X=None, y=None):
         input_shape = self.prev_layer.get_output_shape()
@@ -83,7 +86,8 @@ class BaseLayer(object):
         for param, update in zip(self.get_params(), updates):
             param.set_value(update)
 
-    def create_param(self, shape, scheme='Xavier', name=None,
+    @staticmethod
+    def create_param(shape, scheme='Xavier', name=None,
                      broadcastable=None):
         """ Currently 3 supported schemes:
 
@@ -91,13 +95,17 @@ class BaseLayer(object):
           ~ N[+/- sqrt(2 / num_units)]
         * Xavier : Glorot, Bengio 2010
           ~ U[+/- sqrt(6 / (fan_in + fan_out))]
+          The assumptions work for dense and convolutional layers
         * zeros
           A tensor of just zeros
         * ones
           A tensor of just ones
+        * orthogonal
+          Orthogonal matrix initialization
+          The assumptions work for dense and convolutional layers
 
         """
-        schemes_known = ['He', 'Xavier', 'Zeros', 'Ones']
+        schemes_known = ['He', 'Xavier', 'Zeros', 'Ones', 'Orthogonal']
         scheme_variants = schemes_known + [s.lower() for s in schemes_known]
         if scheme not in scheme_variants:
             raise TypeError("The proposed scheme {} is not supported, we only "
@@ -107,7 +115,6 @@ class BaseLayer(object):
             num_units = reduce(op.mul, shape)
             return shared_random_normal(shape, num_units, name, broadcastable)
         elif scheme.lower() == 'xavier':
-            # assumptions work for dense and conv layers
             receptive_field_size = np.prod(shape[2:])
             high = np.sqrt(6 / reduce(op.add, shape[:2]) /
                            receptive_field_size)
@@ -160,10 +167,12 @@ class DenseLayer(BaseLayer):
         self.num_features = (self.num_features if self.num_features
                              else reduce(op.mul, self.input_shape[1:]))
         self.W = self.create_param(
+            scheme=self.init_scheme,
             shape=(self.num_features, self.num_units),
             name='W_{}'.format(self.name),
         )
         self.b = self.create_param(
+            scheme=self.init_scheme,
             shape=(1, self.num_units),
             name='b_{}'.format(self.name),
             broadcastable=(True, False),
@@ -225,10 +234,12 @@ class Conv2DLayer(BaseLayer):
                         self.filter_size[1])
         self.filter_shape_ = filter_shape
         self.W = self.create_param(
+            scheme=self.init_scheme,
             shape=filter_shape,
             name='W_{}'.format(self.name),
         )
         self.b = self.create_param(
+            scheme=self.init_scheme,
             shape=(self.num_filters,),
             name='b_{}'.format(self.name),
         )

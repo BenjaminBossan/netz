@@ -53,10 +53,22 @@ def shared_ones(shape, name=None, broadcastable=None):
 
 
 def shared_random_normal(shape, factor=1., name=None, broadcastable=None):
-    arr = factor * np.random.randn(*shape).astype(theano.config.floatX)
+    arr = factor * np.random.randn(*shape).astype(floatX)
     new_var = shared(arr, broadcastable=broadcastable)
     if name is not None:
         new_var.name = name
+    return new_var
+
+
+def shared_random_orthogonal(shape, name=None, broadcastable=None):
+    shape_2d = (shape[0], np.prod(shape[1:]))
+    arr = np.random.normal(0., 1., shape_2d).astype(floatX)
+    u, __, v = np.linalg.svd(arr, full_matrices=False)
+    q = u if u.shape == shape_2d else v
+    q = q.reshape(shape)
+    new_var = shared(q, broadcastable=broadcastable)
+    if name is not None:
+        new_var.nsame = name
     return new_var
 
 
