@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
+import inspect
 import itertools as it
 from copy import deepcopy
 
@@ -115,3 +116,18 @@ class GradChecker(object):
                     theano_grads_all.append(theano_grad[idx])
                     numerical_grads_all.append(numerical_grad[idx])
         return theano_grads_all, numerical_grads_all
+
+
+def get_default_arg(func, argname):
+    """Get the default value of a function or method
+
+    see: http://stackoverflow.com/questions/12627118/
+         get-a-function-arguments-default-value
+
+    """
+    argument_info = inspect.getargspec(func)
+    default_argument_dict = dict(
+        zip(argument_info.args[-len(argument_info.defaults):],
+            argument_info.defaults)
+    )
+    return default_argument_dict[argname]
