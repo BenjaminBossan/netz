@@ -16,10 +16,9 @@ class BaseUpdater(object):
     ):
         self.learn_rate = to_32(learn_rate)
 
-    def get_updates(self, cost, layer):
-        grads = layer.get_grads(cost)
+    def get_updates(self, cost, grads, params):
         updates = []
-        for param, grad in zip(layer.get_params(), grads):
+        for param, grad in zip(params, grads):
             if not param:
                 continue
             grad = to_32(grad)

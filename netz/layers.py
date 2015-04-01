@@ -129,7 +129,9 @@ class BaseLayer(object):
         pass
 
     def get_updates(self, cost):
-        return self.updater.get_updates(cost, self)
+        grads = self.get_grads(cost)
+        params = self.get_params()
+        return self.updater.get_updates(cost, grads, params)
 
 
 class InputLayer(BaseLayer):
