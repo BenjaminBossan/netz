@@ -110,7 +110,7 @@ class NeuralNet(BaseEstimator):
                               allow_input_downcast=True)
 
         # generate predict function
-        self._predict = function(
+        self._predict_proba = function(
             [Xs], self.feed_forward(Xs, deterministic=True),
             allow_input_downcast=True)
 
@@ -220,7 +220,7 @@ class NeuralNet(BaseEstimator):
         return self.layers[-1].get_output(X, deterministic=deterministic)
 
     def predict_proba(self, X):
-        return self._predict(X)
+        return self._predict_proba(X)
 
     def predict(self, X):
         y_prob = self.predict_proba(X)
