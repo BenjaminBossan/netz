@@ -124,6 +124,8 @@ class BaseLayer(object):
             return shared_zeros(shape, name, broadcastable)
         elif scheme.lower() == 'ones':
             return shared_ones(shape, name, broadcastable)
+        elif scheme.lower() == 'orthogonal':
+            return shared_random_orthogonal(shape, name, broadcastable)
 
     def get_l2_cost(self):
         pass
@@ -421,13 +423,13 @@ class BatchNormLayer(BaseLayer):
             shape[axis] = 1
 
         gamma = self.create_param(
-            shape=shape,
             scheme='ones',
+            shape=shape,
             name='gamma_{}'.format(self.name),
         )
         beta = self.create_param(
-            shape=shape,
             scheme='zeros',
+            shape=shape,
             name='beta_{}'.format(self.name),
         )
         self.gamma = gamma
