@@ -186,6 +186,8 @@ class NeuralNet(BaseEstimator):
             if self.eval_size > 0.:
                 for Xb, yb in self.iterator(X_valid, y_valid):
                     valid_cost.append(self._fit(Xb, yb, mode='test'))
+                # TODO: inefficient since 2 predictions are made on
+                # X_valid where 1 would suffice
                 accuracy_valid = self.score(X_valid, labels_valid, True)
                 mean_valid = np.mean(valid_cost) if valid_cost else 0
             else:
@@ -229,7 +231,7 @@ class NeuralNet(BaseEstimator):
     def score(self, X, labels, accuracy=False):
         if X.shape[0] != labels.shape[0]:
             raise ValueError(
-                "Incompatible input dimensions: X.shape[0] is {},"
+                "Incompatible input shapes: X.shape[0] is {},"
                 " y.shape[0] is {}".format(X.shape[0], labels.shape[0])
             )
         if not accuracy:
