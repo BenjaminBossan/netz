@@ -82,10 +82,6 @@ class BaseLayer(object):
     def get_grads(self, cost):
         return [theano.grad(cost, param) for param in self.get_params()]
 
-    def set_params(self, updates):
-        for param, update in zip(self.get_params(), updates):
-            param.set_value(update)
-
     @staticmethod
     def create_param(shape, scheme='Xavier', name=None,
                      broadcastable=None):
@@ -142,7 +138,7 @@ class InputLayer(BaseLayer):
             X = T.constant(X, name='input')
         return X
 
-    def set_update(self, *args, **kwargs):
+    def set_updater(self, *args, **kwargs):
         pass
 
     def initialize(self, X, y):
@@ -476,7 +472,7 @@ class InputConcatLayer(BaseLayer):
                 raise ValueError("All input shapes except for axis one "
                                  "must be equal for InputConcatLayer.")
 
-    def set_update(self, *args, **kwargs):
+    def set_updater(self, *args, **kwargs):
         pass
 
     def set_prev_layer(self, layer):
