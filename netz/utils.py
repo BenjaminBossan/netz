@@ -10,7 +10,7 @@ floatX = theano.config.floatX
 
 def to_32(x):
     if type(x) == int:
-        return np.array(x).astype(np.int32)
+        return np.array(x).astype(np.float32)
     if type(x) == float:
         return np.array(x).astype(np.float32)
     if isinstance(x, np.ndarray):
