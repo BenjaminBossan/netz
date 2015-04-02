@@ -155,6 +155,9 @@ class InputLayer(BaseLayer):
     def get_output_shape(self):
         return self.input_shape
 
+    def get_output(self, X, *args, **kwargs):
+        return X
+
 
 class DenseLayer(BaseLayer):
     def __init__(self, num_units, num_features=None, *args, **kwargs):
