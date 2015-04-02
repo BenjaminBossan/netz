@@ -290,6 +290,108 @@ class NeuralNet(BaseEstimator):
         print("\n")
 
 
+class MultipleInputNet(NeuralNet):
+    def _initialize_functions(self, many_X, y):
+        # symbolic variables
+        ys = T.matrix('y').astype(theano.config.floatX)
+        many_Xs = []
+        for X in many_X:
+            if X.ndim == 2:
+                Xs = T.matrix('X').astype(theano.config.floatX)
+            elif X.ndim == 4:
+                Xs = T.tensor4('X').astype(theano.config.floatX)
+            else:
+                raise ValueError("Input must be 2D or 4D, instead got {}D."
+                                 "".format(X.ndim))
+            many_Xs.append(Xs)
+
+        # generate train function
+        cost_train = self._get_cost_function(many_Xs, ys, False)
+        updates = [layer.get_updates(cost_train) for layer in self.layers
+                   if layer.updater]
+        updates = flatten(updates)
+        self.train_ = function(many_Xs + [ys], cost_train, updates=updates,
+                               allow_input_downcast=True)
+
+        # generate test function
+        cost_test = self._get_cost_function(many_Xs, ys, True)
+        self.test_ = function(many_Xs + [ys], cost_test,
+                              allow_input_downcast=True)
+
+        # generate predict function
+        self._predict_proba = function(
+            many_Xs, self.feed_forward(many_Xs, deterministic=True),
+            allow_input_downcast=True)
+
+    def initialize(self, many_X, y):
+        if any([X.shape[0] != many_X[0].shape[0] for X in many_X]):
+            raise ValueError("All inputs must have the same shape in the "
+                             "first dimension, instead got the following "
+                             "shapes: {}".format(', '.join(X.shape[0]
+                                                           for X in many_X)))
+        super(MultipleInputNet, self).initialize(many_X, y)
+
+    def _fit(self, X, y, mode='train'):
+        if mode == 'train':
+            cost = self.train_(*(X + [y]))
+        else:
+            cost = self.test_(*(X + [y]))
+        return cost
+
+    def predict_proba(self, many_X):
+        return self._predict_proba(*many_X)
+
+    def score(self, many_X, labels, accuracy=False):
+        if any(X.shape[0] != labels.shape[0] for X in many_X):
+            raise ValueError(
+                "Incompatible input shapes along 1st dim: X shapes are {}, "
+                "y shape is {}".format(', '.join([X.shape[0] for X in many_X]),
+                                       labels.shape[0])
+            )
+        if not accuracy:
+            y = self.encoder_.transform(labels.reshape(-1, 1))
+            return self.test_(*(X + [y])) + 0.
+        else:
+            y_pred = self.predict(many_X)
+            return np.mean(labels == y_pred)
+
+    def train_test_split(self, many_X, y):
+        many_X_train_splits = []
+        many_X_valid_splits = []
+        eval_size = self.eval_size
+
+        for X in many_X:
+            if eval_size:
+                kf = StratifiedKFold(y, round(1. / eval_size))
+                train_indices, valid_indices = next(iter(kf))
+                X_train, y_train = X[train_indices], y[train_indices]
+                X_valid, y_valid = X[valid_indices], y[valid_indices]
+            else:
+                X_train, y_train = X, y
+                X_valid, y_valid = X[len(X):], y[len(y):]
+            many_X_train_splits.append(X_train)
+            many_X_valid_splits.append(X_valid)
+        return many_X_train_splits, many_X_valid_splits, y_train, y_valid
+
+    def _set_hash(self, many_X, y):
+        self.y_hash_ = np_hash(y)
+        self.X_hash_ = np.sum(map(np_hash, many_X))
+
+    def get_train_data(self, many_X, y):
+        X_hash, y_hash = np.sum(map(np_hash, many_X)), np_hash(y)
+        if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
+            warnings.warn("Input data has changed since last usage")
+        X_train, __, y_train, __ = self.train_test_split(many_X, y)
+        return X_train, y_train
+
+    def get_valid_data(self, many_X, y):
+        X_hash, y_hash = np.sum(map(np_hash, many_X)), np_hash(y)
+        if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
+            warnings.warn("Input data has changed since last usage")
+        __, X_valid, __, y_valid = self.train_test_split(many_X, y)
+        return X_valid, y_valid
+
+
 class RNN(NeuralNet):
     def __init__(
             self,
