@@ -26,7 +26,7 @@ from tutils import verify_grad
 from tutils import relative_error
 
 
-np.random.seed(17411)
+np.random.seed(17412)
 # Number of numerically checked gradients per paramter (more -> slower)
 NUM_CHECK = 10
 EPSILON = 1e-3
@@ -145,18 +145,18 @@ class TestConvDropoutNet(BaseNetTest2D):
         return net
 
 
-@pytest.mark.slow
-class TestRMSPropL2RegularizationNet(BaseNetTest):
-    @pytest.fixture(scope='session')
-    def net(self):
-        layers = [InputLayer(),
-                  DenseLayer(7, nonlinearity=rectify, lambda2=0.001),
-                  DenseLayer(24, lambda2=0.001),
-                  OutputLayer()]
-        net = NeuralNet(layers, cost_function=crossentropy,
-                        updater=RMSProp(rho=0.9))
-        net.fit(X, y, max_iter=MAX_ITER)
-        return net
+# @pytest.mark.slow
+# class TestRMSPropL2RegularizationNet(BaseNetTest):
+#     @pytest.fixture(scope='session')
+#     def net(self):
+#         layers = [InputLayer(),
+#                   DenseLayer(7, nonlinearity=rectify, lambda2=0.001),
+#                   DenseLayer(24, lambda2=0.001),
+#                   OutputLayer()]
+#         net = NeuralNet(layers, cost_function=crossentropy,
+#                         updater=RMSProp(rho=0.9))
+#         net.fit(X, y, max_iter=MAX_ITER)
+#         return net
 
 
 @pytest.mark.slow
