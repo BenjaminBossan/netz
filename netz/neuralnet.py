@@ -17,6 +17,7 @@ from theano import tensor as T
 from costfunctions import crossentropy
 from updaters import SGD
 from utils import flatten
+from utils import np_hash
 
 
 class NeuralNet(BaseEstimator):
@@ -253,17 +254,11 @@ class NeuralNet(BaseEstimator):
             X_valid, y_valid = X[len(X):], y[len(y):]
         return X_train, X_valid, y_train, y_valid
 
-    def _get_hash(self, X, y):
-        # ``iter`` seems to be necessary if X or y are just views and if
-        # we want to avoid creating a copy.
-        X_hash, y_hash = hash(iter(X)), hash(iter(y))
-        return X_hash, y_hash
-
     def _set_hash(self, X, y):
-        self.X_hash_, self.y_hash_ = self._get_hash(X, y)
+        self.X_hash_, self.y_hash_ = np_hash(X), np_hash(y)
 
     def get_train_data(self, X, y):
-        X_hash, y_hash = self._get_hash(X, y)
+        X_hash, y_hash = np_hash(X), np_hash(y)
         if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
             warnings.warn("Input data has changed since last usage")
         X_train, __, y_train, __ = self.train_test_split(X, y)

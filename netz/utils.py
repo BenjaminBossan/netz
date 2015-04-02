@@ -2,6 +2,7 @@
 from __future__ import division
 import itertools as it
 
+import joblib
 import numpy as np
 import theano
 from theano import shared
@@ -88,6 +89,12 @@ def flatten(lst):
         for elem in sublst:
             flat_lst.append(elem)
     return flat_lst
+
+
+def np_hash(arr):
+    """Hash a numpy array.
+    """
+    return int(joblib.hash(arr), base=16)
 
 
 def occlusion_heatmap(net, x, y, square_length=7):
