@@ -159,6 +159,24 @@ class InputLayer(BaseLayer):
         return X
 
 
+class PartialInputLayer(InputLayer):
+    def __init__(self, idx, *args, **kwargs):
+        super(PartialInputLayer, self).__init__(*args, **kwargs)
+        self.idx = idx
+
+    def initialize(self, X, y):
+        if not (isinstance(X, tuple) or isinstance(X, list)):
+            raise TypeError("Input of MultipleInputLayer must be a list or "
+                            "tuple, instead got {}.".format(type(X)))
+        if self.idx > len(X):
+            raise ValueError("You are asking for the {}'th input but there "
+                             "are only {} inputs.".format(self.idx, len(X)))
+        super(PartialInputLayer, self).initialize(X[self.idx], y)
+
+    def get_output(self, X, *args, **kwargs):
+        return X[self.idx]
+
+
 class DenseLayer(BaseLayer):
     def __init__(self, num_units, num_features=None, *args, **kwargs):
         super(DenseLayer, self).__init__(*args, **kwargs)
