@@ -133,6 +133,12 @@ class BaseLayer(object):
         params = self.get_params()
         return self.updater.get_updates(cost, grads, params)
 
+    def __repr__(self):
+        if self.name is not None:
+            return self.name
+        else:
+            return super(BaseLayer, self).__repr__()
+
 
 class InputLayer(BaseLayer):
     def get_output(self, X, *args, **kwargs):
