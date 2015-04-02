@@ -18,6 +18,7 @@ from costfunctions import crossentropy
 from updaters import SGD
 from utils import flatten
 from utils import np_hash
+from utils import to_32
 
 
 class NeuralNet(BaseEstimator):
@@ -287,3 +288,82 @@ class NeuralNet(BaseEstimator):
                 str(reduce(op.mul, output_shape[1:])),
             ))
         print("\n")
+
+
+class RNN(NeuralNet):
+    def __init__(
+            self,
+            layers,
+            updater=SGD(),
+            cost_function=crossentropy,
+            iterator=BatchIterator(1),
+            lambda2=None,
+            eval_size=0.2,
+            verbose=0,
+    ):
+        self.layers = layers
+        self.updater = updater
+        self.cost_function = cost_function
+        self.iterator = iterator
+        self.lambda2 = lambda2
+        self.eval_size = eval_size
+        self.verbose = verbose
+
+    def initialize(self, X, y):
+        if self.iterator.batch_size != 1:
+            raise ValueError("Currently, only batch sizes of 1 are supported "
+                             "(i.e. no batches) but you set a batch size of "
+                             "{}.".format(self.iterator.batch_size))
+        super(RNN, self).initialize(X, y)
+
+    def _initialize_functions(self, X, y):
+        # symbolic variables
+        ys = T.matrix('y')
+        Xs = T.ivector('X')
+
+        # generate train function
+        cost_train = self._get_cost_function(Xs, ys, False)
+        updates = [layer.get_updates(cost_train) for layer in self.layers
+                   if layer.updater]
+        updates = flatten(updates)
+        self.train_ = function([Xs, ys], cost_train, updates=updates,
+                               allow_input_downcast=True)
+
+        # generate test function
+        cost_test = self._get_cost_function(Xs, ys, True)
+        self.test_ = function([Xs, ys], cost_test,
+                              allow_input_downcast=True)
+
+        # generate predict function
+        self._predict_proba = function(
+            [Xs], self.feed_forward(Xs, deterministic=True),
+            allow_input_downcast=True)
+
+    def _fit(self, X, y, mode='train'):
+        X = X[0]
+        if mode == 'train':
+            cost = self.train_(X, y)
+        else:
+            cost = self.test_(X, y)
+        return cost
+
+    def predict_proba(self, X):
+        n = X.shape[0]
+        pred = [self._predict_proba(x) for x in X]
+        return to_32(np.asarray(pred)).reshape(n, -1)
+
+    def score(self, X, labels, accuracy=False):
+        if X.shape[0] != labels.shape[0]:
+            raise ValueError(
+                "Incompatible input shapes: X.shape[0] is {},"
+                " y.shape[0] is {}".format(X.shape[0], labels.shape[0])
+            )
+        score = []
+        if not accuracy:
+            y = self.encoder_.transform(labels.reshape(-1, 1))
+            for Xb, yb in self.iterator(X, y):
+                score.append(self.test_(Xb[0], yb))
+        else:
+            for Xb, yb in self.iterator(X, labels):
+                score.append(self.predict(Xb) == yb)
+        return np.mean(score)
