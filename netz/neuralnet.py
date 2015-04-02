@@ -274,13 +274,13 @@ class NeuralNet(BaseEstimator):
 
     def _print_layer_info(self):
         print("## Layer information")
-        print("  # | {:<12} | {:<18} | {:>12} ".format(
+        print("  # | {:<18} | {:<18} | {:>12} ".format(
             "name", "output shape", "total"))
         print("----|-{}-|-{}-|-{}-".format(
-            "-" * 12, "-" * 18, "-" * 12))
+            "-" * 18, "-" * 18, "-" * 12))
         for num, layer in enumerate(self.layers):
             output_shape = tuple(layer.get_output_shape())
-            row = " {:>2} | {:<12} | {:<18} | {:>12}"
+            row = " {:>2} | {:<18} | {:<18} | {:>12}"
             print(row.format(
                 num,
                 layer.name,
