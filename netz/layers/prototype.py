@@ -1,26 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
-import operator as op
-import warnings
 
 import numpy as np
-from pylearn2.sandbox.cuda_convnet.filter_acts import FilterActs
-import theano
+from sklearn.utils import murmurhash3_32 as mmh
 import theano.tensor as T
-from theano.sandbox.cuda.basic_ops import gpu_contiguous
-from theano.tensor.extra_ops import repeat
 from theano.tensor.shared_randomstreams import RandomStreams
-from theano.tensor.signal.downsample import max_pool_2d
 
-from ..nonlinearities import sigmoid
-from ..nonlinearities import softmax
-from ..utils import shared_random_normal
-from ..utils import shared_random_orthogonal
-from ..utils import shared_random_uniform
-from ..utils import shared_ones
-from ..utils import shared_zeros
-from ..utils import to_32
 from .base import BaseLayer
+from .dense import DenseLayer
+from .input import InputLayer
+from ..utils import to_32
 
 srng = RandomStreams(seed=17411)
 
@@ -88,7 +77,7 @@ class FeatureHashLayer(DenseLayer):
     itself.
 
     """
-    def __init__(self, num_units, size=2**20, *args, **kwargs):
+    def __init__(self, num_units, size=2 ** 20, *args, **kwargs):
         super(FeatureHashLayer, self).__init__(*args, **kwargs)
         self.num_units = num_units
         self.size = size
@@ -124,6 +113,6 @@ class FeatureHashLayer(DenseLayer):
         input = self.prev_layer.get_output(X, *args, **kwargs)
         mask_new = np.array([mmh(x) % self.size for x in input]).reshape(-1, 1)
         mask_new = T.shared(mask_new)
-        self.mask_new_ = mask_new_
-        output = T.sum(T.multiply(W, mask_new) + self.b, axis=0)
+        self.mask_new_ = mask_new
+        output = T.sum(T.multiply(self.W, mask_new) + self.b, axis=0)
         return output
