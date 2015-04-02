@@ -145,9 +145,8 @@ class TestConcatNet():
         assert layers[1].next_layer is layers[3]
         assert layers[2].prev_layer is layers[0]
         assert layers[2].next_layer is layers[3]
-        assert layers[3].prev_layers[0] is layers[1]
-        assert layers[3].prev_layers[1] is layers[2]
-        assert layers[3].prev_layer is None
+        assert layers[3].prev_layer[0] is layers[1]
+        assert layers[3].prev_layer[1] is layers[2]
         assert layers[3].next_layer is layers[4]
         assert layers[4].prev_layer is layers[3]
         assert layers[4].next_layer is None
