@@ -16,3 +16,9 @@ Look here for an example usage:
 * [MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/MNIST.ipynb)
 * [Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
 * [Recurrent Nets](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Recurrent_Rotten.ipynb)
+
+### Tests
+
+On some systems, the custom gradient checking algorithm does not seem to work for biases. However, it seems that still everything works as expected. To ignore those tests, run:
+
+    py.test -k "not custom"
