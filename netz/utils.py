@@ -97,6 +97,25 @@ def np_hash(arr):
     return int(joblib.hash(arr), base=16)
 
 
+def build_layer_dict(layers):
+    layer_dict = {layer.name: layer for layer in layers if layer.name}
+    if len(layer_dict) != len(layers):
+        raise ValueError("Please specify a unique name for all layers.")
+    return layer_dict
+
+
+def connect_layers(layers, pattern):
+    layer_dict = build_layer_dict(layers)
+    pattern = pattern.replace(' ', '')
+    patterns = [tuple(line.split('->')) for line in
+                pattern.split('\n') if line]
+    for layer_name0, layer_name1 in patterns:
+        layer0 = layer_dict[layer_name0]
+        layer1 = layer_dict[layer_name1]
+        layer0.set_next_layer(layer1)
+        layer1.set_prev_layer(layer0)
+
+
 def occlusion_heatmap(net, x, y, square_length=7):
     """An occlusion test that checks an image for its critical parts.
 

@@ -16,6 +16,7 @@ from theano import tensor as T
 
 from costfunctions import crossentropy
 from updaters import SGD
+from utils import connect_layers
 from utils import flatten
 from utils import np_hash
 from utils import to_32
@@ -31,6 +32,7 @@ class NeuralNet(BaseEstimator):
             lambda2=None,
             eval_size=0.2,
             verbose=0,
+            connection_pattern=None,
     ):
         self.layers = layers
         self.updater = updater
@@ -39,6 +41,7 @@ class NeuralNet(BaseEstimator):
         self.lambda2 = lambda2
         self.eval_size = eval_size
         self.verbose = verbose
+        self.connection_pattern = connection_pattern
 
     def get_layer_params(self):
         return [layer.get_params() for layer in self.layers]
@@ -74,11 +77,14 @@ class NeuralNet(BaseEstimator):
             layer.set_lambda2(self.lambda2)
 
     def _initialize_connections(self):
-        for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
-            if layer0.next_layer is None:
-                layer0.set_next_layer(layer1)
-            if layer1.prev_layer is None:
-                layer1.set_prev_layer(layer0)
+        if not self.connection_pattern:
+            for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
+                if layer0.next_layer is None:
+                    layer0.set_next_layer(layer1)
+                if layer1.prev_layer is None:
+                    layer1.set_prev_layer(layer0)
+        else:
+            connect_layers(self.layers, self.connection_pattern)
 
     def _get_cost_function(self, X, y, deterministic=True):
         y_pred = self.feed_forward(X, deterministic=deterministic)
