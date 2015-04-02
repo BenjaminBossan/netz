@@ -14,4 +14,5 @@ Heavily inspired by:
 Look here for an example usage:
 
 * [MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/master/MNIST.ipynb)
-* [Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
+* [Convolutions]((http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
+* [Recurrent Nets](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Recurrent_Rotten.ipynb)
