@@ -483,13 +483,9 @@ class BatchNormLayer(BaseLayer):
 
 
 class InputConcatLayer(BaseLayer):
-    def __init__(self, prev_layers, *args, **kwargs):
-        super(InputConcatLayer, self).__init__(*args, **kwargs)
-        self.prev_layers = prev_layers
-
     def initialize(self, X, y):
         input_shapes = [layer.get_output_shape() for
-                        layer in self.prev_layers]
+                        layer in self.prev_layer]
         self.input_shapes = input_shapes
         if not np.equal(*[len(input_shape) for input_shape in input_shapes]):
             raise ValueError("Input dimensions for InputConcatLayer should "
@@ -505,7 +501,10 @@ class InputConcatLayer(BaseLayer):
         pass
 
     def set_prev_layer(self, layer):
-        pass
+        if not self.prev_layer:
+            self.prev_layer = [layer]
+        else:
+            self.prev_layer.append(layer)
 
     def get_grads(self, cost):
         return [None]
@@ -515,7 +514,7 @@ class InputConcatLayer(BaseLayer):
 
     def get_output(self, X, *args, **kwargs):
         outputs = [layer.get_output(X, *args, **kwargs) for
-                   layer in self.prev_layers]
+                   layer in self.prev_layer]
         return T.concatenate(outputs, axis=1)
 
     def get_output_shape(self):
