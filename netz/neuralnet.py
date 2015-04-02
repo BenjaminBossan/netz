@@ -266,7 +266,7 @@ class NeuralNet(BaseEstimator):
         return X_train, y_train
 
     def get_valid_data(self, X, y):
-        X_hash, y_hash = self._get_hash(X, y)
+        X_hash, y_hash = np_hash(X), np_hash(y)
         if (X_hash != self.X_hash_) or (y_hash != self.y_hash_):
             warnings.warn("Input data has changed since last usage")
         __, X_valid, __, y_valid = self.train_test_split(X, y)
