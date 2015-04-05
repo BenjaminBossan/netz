@@ -408,6 +408,7 @@ class RNN(NeuralNet):
             lambda2=None,
             eval_size=0.2,
             verbose=0,
+            connection_pattern=None,
     ):
         self.layers = layers
         self.updater = updater
@@ -416,6 +417,7 @@ class RNN(NeuralNet):
         self.lambda2 = lambda2
         self.eval_size = eval_size
         self.verbose = verbose
+        self.connection_pattern = connection_pattern
 
     def initialize(self, X, y):
         if self.iterator.batch_size != 1:
