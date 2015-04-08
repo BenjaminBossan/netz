@@ -52,16 +52,18 @@ class RecurrentLayer(BaseLayer):
 
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
-        h0 = self._step(input[:1], T.zeros_like(self.bh))
+        # 1st step
+        h0 = self._step(input[:, 0, :], T.zeros_like(self.bh))
+        # scan iterates over 0th dimension, hence dimshuffle
         output = theano.scan(
             self._step,
-            sequences=[input[1:]],
-            non_sequences=[h0],
+            sequences=[input[:, 1:, :].dimshuffle(1, 0, 2)],
+            outputs_info=[h0],
         )[0]
         return output[-1]
 
     def get_output_shape(self):
-        return (1, self.num_units)
+        return self.input_shape[0], self.num_units
 
     def get_l2_cost(self):
         weights_squared = T.sum(self.Wh ** 2) + T.sum(self.Uh ** 2)
@@ -175,16 +177,18 @@ class GRULayer(BaseLayer):
 
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
-        h0 = self._step(input[:1], T.zeros_like(self.bh))
+        # 1st step
+        h0 = self._step(input[:, 0, :], T.zeros_like(self.bh))
+        # scan iterates over 0th dimension, hence dimshuffle
         output = theano.scan(
             self._step,
-            sequences=[input[1:]],
+            sequences=[input[:, 1:, :].dimshuffle(1, 0, 2)],
             non_sequences=[h0],
         )[0]
         return output[-1]
 
     def get_output_shape(self):
-        return (1, self.num_units)
+        return self.input_shape[0], self.num_units
 
     def get_l2_cost(self):
         weights_squared = (T.sum(self.Wh ** 2) + T.sum(self.Uh ** 2) +
