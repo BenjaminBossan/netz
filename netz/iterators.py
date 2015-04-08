@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
+from nolearn.lasagne import BatchIterator
 
-class MultipleInputsBatchIterator(object):
-    def __init__(self, batch_size):
-        self.batch_size = batch_size
 
+class MultipleInputsBatchIterator(BatchIterator):
+    """The MultipleInputsBatchIterator works with a list of numpy arrays
+
+    Instead of a single numpy array, this takes a list of numpy arrays
+    and returns a list of slices of the individual numpy arrays.
+
+    """
     def __call__(self, many_X, y=None):
         self.many_X, self.y = many_X, y
         return self
