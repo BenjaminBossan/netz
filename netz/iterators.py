@@ -5,6 +5,9 @@ from nolearn.lasagne import BatchIterator
 import numpy as np
 
 
+__all__ = ['BatchIterator', 'MultipleInputsBatchIterator', 'PadBatchIterator']
+
+
 class MultipleInputsBatchIterator(BatchIterator):
     """The MultipleInputsBatchIterator works with a list of numpy arrays
 
