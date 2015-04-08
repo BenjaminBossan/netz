@@ -64,7 +64,8 @@ class RecurrentLayer(BaseLayer):
         return (1, self.num_units)
 
     def get_l2_cost(self):
-        return 0.5 * self.lambda2 * T.sum(self.Wh ** 2)
+        weights_squared = T.sum(self.Wh ** 2) + T.sum(self.Uh ** 2)
+        return 0.5 * self.lambda2 * weights_squared
 
 
 class GRULayer(BaseLayer):
@@ -186,6 +187,7 @@ class GRULayer(BaseLayer):
         return (1, self.num_units)
 
     def get_l2_cost(self):
-        weights_squared = T.sum(self.Wh ** 2) + T.sum(self.Wz ** 2)
-        weights_squared += T.sum(self.Wr ** 2)
+        weights_squared = (T.sum(self.Wh ** 2) + T.sum(self.Uh ** 2) +
+                           T.sum(self.Wz ** 2) + T.sum(self.Uz ** 2) +
+                           T.sum(self.Wr ** 2) + T.sum(self.Ur ** 2))
         return 0.5 * self.lambda2 * weights_squared
