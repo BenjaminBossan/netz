@@ -16,6 +16,7 @@ from ..utils import shared_zeros
 
 srng = RandomStreams(seed=17411)
 
+
 __all__ = ['BaseLayer']
 
 
@@ -45,21 +46,27 @@ class BaseLayer(object):
         self.input_shape = input_shape
 
     def set_prev_layer(self, layer):
+        if self.prev_layer is not None:
+            warnings.warn("You are overriding the previous layer "
+                          "of layer {}.".format(self.name))
         self.prev_layer = layer
 
     def set_next_layer(self, layer):
+        if self.next_layer is not None:
+            warnings.warn("You are overriding the previous layer "
+                          "of layer {}.".format(self.name))
         self.next_layer = layer
 
     def set_updater(self, updater):
         if self.updater is not None:
-            raise warnings.warn("You are overwriting the updater set"
-                                "for layer {}.".format(self.name))
+            warnings.warn("You are overriding the updater set "
+                          "for layer {}.".format(self.name))
         self.updater = updater
 
     def set_lambda2(self, lambda2):
         if self.lambda2 is not None:
-            raise warnings.warn("You are overwriting the lambda2 parameter"
-                                "for layer {}.".format(self.name))
+            warnings.warn("You are overriding the lambda2 parameter "
+                          "for layer {}.".format(self.name))
         self.lambda2 = lambda2
 
     def set_name(self, name):
