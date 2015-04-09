@@ -7,7 +7,11 @@ from scipy.stats import kstest
 from theano import shared
 
 from tutils import relative_error
+from ..layers import DenseLayer
+from ..layers import InputConcatLayer
+from ..utils import connect_layers
 from ..utils import flatten
+from ..utils import np_hash
 from ..utils import shared_random_normal
 from ..utils import shared_random_uniform
 from ..utils import shared_zeros_like
@@ -124,3 +128,114 @@ class TestSharedRandomNormal:
         arr = arr.get_value().flatten()
         p_val = kstest(arr, 'norm')[1]
         assert p_val > 0.05
+
+
+def test_np_hash():
+    arr = np.random.random((100, 100))
+    assert np_hash(arr) == np_hash(arr)
+    assert np_hash(arr) == np_hash(arr.T.T)
+    assert np_hash(arr) == np_hash(arr.copy())
+    assert np_hash(np.ones((23))) == np_hash(np.ones((23)))
+    assert np_hash(arr[50:]) == np_hash(arr[50:])
+    assert np_hash(arr[:, 0]) == np_hash(arr[:, 0])
+    assert np_hash(arr) != np_hash(arr.T)
+    assert np_hash(arr) != np_hash(arr[::-1])
+    assert np_hash(arr) != np_hash(np.random.random((100, 100)))
+
+
+class TestConnectLayers:
+    @pytest.fixture(scope='function')
+    def layers(self):
+        layers = [DenseLayer(1, name='0'),
+                  DenseLayer(1, name='1'),
+                  DenseLayer(1, name='2'),
+                  DenseLayer(1, name='3'),
+                  DenseLayer(1, name='4'),
+                  DenseLayer(1, name='5')]
+        return layers
+
+    def test_connect_pattern_straight(self, layers):
+        pattern = """
+        0->1
+        1->2
+        2->3
+        3->4
+        4->5"""
+        connect_layers(layers, pattern)
+        assert layers[0].prev_layer is None
+        assert layers[1].prev_layer is layers[0]
+        assert layers[2].prev_layer is layers[1]
+        assert layers[3].prev_layer is layers[2]
+        assert layers[4].prev_layer is layers[3]
+        assert layers[5].prev_layer is layers[4]
+        assert layers[0].next_layer is layers[1]
+        assert layers[1].next_layer is layers[2]
+        assert layers[2].next_layer is layers[3]
+        assert layers[3].next_layer is layers[4]
+        assert layers[4].next_layer is layers[5]
+        assert layers[5].next_layer is None
+
+    def test_connect_pattern_crossing(self, layers):
+        pattern = """
+        0->1
+        3->2
+        1->5
+        5->4
+        """
+        connect_layers(layers, pattern)
+        assert layers[0].prev_layer is None
+        assert layers[1].prev_layer is layers[0]
+        assert layers[2].prev_layer is layers[3]
+        assert layers[3].prev_layer is None
+        assert layers[4].prev_layer is layers[5]
+        assert layers[5].prev_layer is layers[1]
+        assert layers[0].next_layer is layers[1]
+        assert layers[1].next_layer is layers[5]
+        assert layers[2].next_layer is None
+        assert layers[3].next_layer is layers[2]
+        assert layers[4].next_layer is None
+        assert layers[5].next_layer is layers[4]
+
+    def test_connect_pattern_many_to_one(self, layers):
+        pattern = """
+        0->5
+        1->5
+        2->5
+        3->5
+        4->5"""
+        connect_layers(layers, pattern)
+        assert layers[0].prev_layer is None
+        assert layers[1].prev_layer is None
+        assert layers[2].prev_layer is None
+        assert layers[3].prev_layer is None
+        assert layers[4].prev_layer is None
+        assert layers[5].prev_layer is layers[4]
+        assert layers[0].next_layer is layers[5]
+        assert layers[1].next_layer is layers[5]
+        assert layers[2].next_layer is layers[5]
+        assert layers[3].next_layer is layers[5]
+        assert layers[4].next_layer is layers[5]
+        assert layers[5].next_layer is None
+
+    def test_connect_pattern_many_to_InputConcatLayer(self, layers):
+        pattern = """
+        0->5
+        1->5
+        2->5
+        3->5
+        4->5"""
+        layers[-1] = InputConcatLayer(name='5')
+        connect_layers(layers, pattern)
+        assert layers[0].prev_layer is None
+        assert layers[1].prev_layer is None
+        assert layers[2].prev_layer is None
+        assert layers[3].prev_layer is None
+        assert layers[4].prev_layer is None
+        assert layers[5].prev_layer == [
+            layers[0], layers[1], layers[2], layers[3], layers[4]]
+        assert layers[0].next_layer is layers[5]
+        assert layers[1].next_layer is layers[5]
+        assert layers[2].next_layer is layers[5]
+        assert layers[3].next_layer is layers[5]
+        assert layers[4].next_layer is layers[5]
+        assert layers[5].next_layer is None
