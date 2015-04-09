@@ -137,3 +137,31 @@ class RMSProp(BaseUpdater):
                              T.sqrt(accu_new + self.epsilon))
         update.append((param, param_new))
         return update
+
+
+class GradientClipping(object):
+    def __init__(self, norm_max, updater):
+        self.norm_max = norm_max
+        self.updater = updater
+
+    @staticmethod
+    def _get_norm(var):
+        return T.sqrt(T.sum(T.sqr(var)))
+
+    @staticmethod
+    def _clip_norm(var, norm_var, norm_max):
+        clipped = T.switch(
+            T.ge(norm_var, norm_max),
+            var * norm_max / norm_var,
+            var)
+        return clipped
+
+    def get_updates(self, *args, **kwargs):
+        norm_max = self.norm_max
+        updates = self.updater.get_updates(*args, **kwargs)
+        clipped_updates = []
+        for var_old, var_new in updates:
+            norm_var_new = self._get_norm(var_new)
+            var_new = self._clip_norm(var_new, norm_var_new, self.norm_max)
+            clipped_updates.append((var_old, var_new))
+        return clipped_updates
