@@ -43,7 +43,7 @@ class TestGradientClipping:
     def grad_clip(self):
         updates = [('1st', np.ones((3, 3)).astype(theano.config.floatX)),
                    ('2nd', 5 * np.ones((2, 34)).astype(theano.config.floatX)),
-                   ('3rd', -3 * np.ones((100, 1)).astype(theano.config.floatX))]
+                   ('3rd', -3 * np.ones((99, 1)).astype(theano.config.floatX))]
         updater = Momentum()
         updater.get_updates = Mock(return_value=updates)
         grad_clip = GradientClipping(2, updater)
