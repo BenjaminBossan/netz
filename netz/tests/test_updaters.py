@@ -29,17 +29,8 @@ X -= X.mean()
 y = np.random.randint(low=0, high=3, size=10).astype(np.float32)
 
 
-# def test_updater_initalize_with_int_arguments():
-#     layers = [InputLayer(),
-#               DenseLayer(1, updater=Momentum(momentum=1.)),
-#               OutputLayer()]
-#     net = NeuralNet(layers)
-#     # this should not raise an exception:
-#     net.initialize(X, y)
-
-
 class TestGradientClipping:
-    @pytest.fixture(scope='function')
+    @pytest.fixture
     def grad_clip(self):
         updates = [('1st', np.ones((3, 3)).astype(theano.config.floatX)),
                    ('2nd', 5 * np.ones((2, 34)).astype(theano.config.floatX)),
