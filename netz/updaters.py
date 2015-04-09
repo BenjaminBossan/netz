@@ -22,17 +22,17 @@ class BaseUpdater(object):
             if not param:
                 continue
             grad = to_32(grad)
-            updates.append(self.update_function(param, grad))
+            updates.append(self._update_function(param, grad))
         # flatten and remove empty
         updates = flatten(updates)
         return updates
 
-    def udpate_function(self, param, grad):
+    def _update_function(self, param, grad):
         raise NotImplementedError
 
 
 class SGD(BaseUpdater):
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         param_new = param - self.learn_rate * grad
         update.append((param, param_new))
@@ -47,7 +47,7 @@ class Momentum(BaseUpdater):
         self.momentum = to_32(momentum)
         super(Momentum, self).__init__(*args, **kwargs)
 
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         update_old = shared_zeros_like(param)
         update_new = self.momentum * update_old - self.learn_rate * grad
@@ -59,7 +59,7 @@ class Momentum(BaseUpdater):
 
 
 class Nesterov(Momentum):
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         update_old = shared_zeros_like(param)
 
@@ -79,7 +79,7 @@ class Adadelta(BaseUpdater):
         self.rho = to_32(rho)
         self.epsilon = to_32(epsilon)
 
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         accu = shared_zeros_like(param)
         accu_delta = shared_zeros_like(param)
@@ -105,7 +105,7 @@ class Adagrad(BaseUpdater):
         self.learn_rate = to_32(learn_rate)
         self.epsilon = to_32(epsilon)
 
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         accu = shared_zeros_like(param)
 
@@ -126,7 +126,7 @@ class RMSProp(BaseUpdater):
         self.rho = to_32(rho)
         self.epsilon = to_32(epsilon)
 
-    def update_function(self, param, grad):
+    def _update_function(self, param, grad):
         update = []
         accu = shared_zeros_like(param)
 
