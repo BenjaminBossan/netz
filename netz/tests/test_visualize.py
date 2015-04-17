@@ -28,20 +28,17 @@ from ..visualize import plot_occlusion
 
 np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
-NUM_CHECK = 3
-EPSILON = 1e-6
-MAX_ITER = 20
+MAX_ITER = 1
 # data
 df = pd.read_csv('netz/tests/mnist_short.csv')
 X = (df.values[:, 1::2] / 255).astype(np.float32)
 X = (X - X.mean()) / X.std()
 y = df.values[:, 0].astype(np.int32)
 X2D = X.reshape(-1, 1, 14, 14)
-NUM_CLASSES = len(np.unique(y))
 
 
-class TestVisualizeVanillaNet:
-    @pytest.fixture(scope='session')
+class TestVisualizePlotLoss:
+    @pytest.fixture
     def net(self):
         layers = [InputLayer(),
                   Conv2DLayer(3, (3, 3), nonlinearity=rectify),
@@ -51,7 +48,7 @@ class TestVisualizeVanillaNet:
                   OutputLayer()]
         net = NeuralNet(layers, cost_function=crossentropy,
                         updater=Adadelta())
-        net.fit(X2D, y, max_iter=1)
+        net.fit(X2D, y, max_iter=MAX_ITER)
         return net
 
     def test_plot_loss_no_args(self, net):
@@ -65,6 +62,21 @@ class TestVisualizeVanillaNet:
 
     def test_plot_loss_args_kwargs(self, net):
         plot_loss(net, 'r--', lw=1)
+
+
+class TestVisualizePlotConvWeights:
+    @pytest.fixture
+    def net(self):
+        layers = [InputLayer(),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
+                  MaxPool2DLayer(),
+                  DenseLayer(10),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        updater=Adadelta())
+        net.fit(X2D, y, max_iter=MAX_ITER)
+        return net
 
     def test_plot_conv_weights_layer_1(self, net):
         plot_conv_weights(net.layers[1])
@@ -82,7 +94,22 @@ class TestVisualizeVanillaNet:
         plot_conv_activity(net.layers[2], X2D[10:11])
 
     def test_plot_conv_activity_with_figsize_arg(self, net):
-        plot_conv_activity(net.layers[1], X2D[100:101], figsize=(8, 1))
+        plot_conv_activity(net[1], X2D[100:101], figsize=(8, 1))
+
+
+class TestVisualizePlotConvWeights:
+    @pytest.fixture
+    def net(self):
+        layers = [InputLayer(),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
+                  Conv2DLayer(3, (3, 3), nonlinearity=rectify),
+                  MaxPool2DLayer(),
+                  DenseLayer(10),
+                  OutputLayer()]
+        net = NeuralNet(layers, cost_function=crossentropy,
+                        updater=Adadelta())
+        net.fit(X2D, y, max_iter=MAX_ITER)
+        return net
 
     def test_plot_occlusion_one_x(self, net):
         plot_occlusion(net, X2D[1:2], y[1:2])

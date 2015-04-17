@@ -39,7 +39,7 @@ X2D = X.reshape(-1, 8, 4, 4)
 y = np.random.randint(low=0, high=3, size=10).astype(np.float32)
 
 
-class BaseNetTest():
+class BaseNetTest:
     def net(self):
         raise NotImplementedError
 
@@ -53,7 +53,7 @@ class BaseNetTest():
         assert np.allclose(difference, 0., atol=ATOL)
 
 
-class BaseNetTest2D():
+class BaseNetTest2D:
     def net(self):
         raise NotImplementedError
 

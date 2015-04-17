@@ -36,7 +36,7 @@ X2D = X.reshape(-1, 1, 28, 28)
 NUM_CLASSES = len(np.unique(y))
 
 
-class TestVanillaNet():
+class TestVanillaNet:
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
@@ -76,7 +76,7 @@ class TestOverfittingNet():
         assert not np.allclose(net.valid_history_[-1], 0., atol=1e-2)
 
 
-class TestSgdNet():
+class TestSgdNet:
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
@@ -119,7 +119,7 @@ class TestSgdNet():
         assert (yt == y).all()
 
 
-class TestConcatNet():
+class TestConcatNet:
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
@@ -139,6 +139,7 @@ class TestConcatNet():
 
     def test_connections(self, net):
         layers = net.layers
+
         assert layers[0].prev_layer is None
         assert layers[0].next_layer is layers[1]
         assert layers[1].prev_layer is layers[0]
@@ -156,7 +157,7 @@ class TestConcatNet():
         assert net.layers[4].W.get_value().shape == (300, NUM_CLASSES)
 
 
-class TestReguNet():
+class TestReguNet:
     @pytest.fixture(scope='session')
     def nets(self):
         layers0 = [InputLayer(),
@@ -182,6 +183,7 @@ class TestReguNet():
         split = 2 * len(v0) // 5
         v0 = np.concatenate((v0[:split], v0[-split:]))
         v1 = np.concatenate((v1[:split], v1[-split:]))
+
         assert check_weights_shrink(v0, v1)
         assert check_relative_diff_similar(v0, v1)
         assert not np.allclose(v0 - v1, 0, atol=1e-3)
@@ -192,10 +194,11 @@ class TestReguNet():
         split = 2 * len(b0) // 5
         b0 = np.concatenate((b0[:split], b0[-split:]))
         b1 = np.concatenate((b1[:split], b1[-split:]))
+
         assert np.allclose(b0 - b1, 0, atol=1e-3)
 
 
-class TestConvDropoutNet():
+class TestConvDropoutNet:
     @pytest.fixture(scope='session')
     def net(self):
         layers = [InputLayer(),
