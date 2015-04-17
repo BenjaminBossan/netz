@@ -1,25 +1,35 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 from collections import defaultdict
+from collections import OrderedDict
+from difflib import SequenceMatcher
 import operator as op
+import pickle
 import time
 import warnings
 
 from nolearn.lasagne import BatchIterator
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.cross_validation import KFold
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder
+from tabulate import tabulate
 import theano
 from theano import function
 from theano import tensor as T
 
 from costfunctions import crossentropy
+from costfunctions import mse
+from layers import Conv2DLayer
 from updaters import SGD
 from utils import connect_layers
 from utils import flatten
+from utils import get_conv_infos
+from utils import IdleTransformer
 from utils import np_hash
 from utils import to_32
+from utils import CYA, END, MAG, RED
 
 
 class NeuralNet(BaseEstimator):
@@ -27,22 +37,26 @@ class NeuralNet(BaseEstimator):
             self,
             layers,
             updater=SGD(),
-            cost_function=crossentropy,
             iterator=BatchIterator(128),
             lambda2=None,
             eval_size=0.2,
             verbose=0,
             connection_pattern=None,
+            cost_function=None,
+            encoder=None,
+            regression=False,
             recurrent=False,
     ):
         self.layers = layers
         self.updater = updater
-        self.cost_function = cost_function
         self.iterator = iterator
         self.lambda2 = lambda2
         self.eval_size = eval_size
         self.verbose = verbose
         self.connection_pattern = connection_pattern
+        self.cost_function = cost_function
+        self.encoder = encoder
+        self.regression = regression
         self.recurrent = recurrent
 
     def __len__(self):
@@ -61,15 +75,15 @@ class NeuralNet(BaseEstimator):
         return self
 
     def get_layer_params(self):
-        return [layer.get_params() for layer in self.layers]
+        return [layer.get_params() for layer in self]
 
     def _get_l2_cost(self):
-        l2_cost = [layer.get_l2_cost() for layer in self.layers]
+        l2_cost = [layer.get_l2_cost() for layer in self]
         return T.sum([cost for cost in l2_cost if cost is not None])
 
     def _initialize_names(self):
         name_counts = defaultdict(int)
-        for layer in self.layers:
+        for layer in self:
             if layer.name is not None:
                 continue
             raw_name = str(layer).split(' ')[0].split('.')[-1]
@@ -78,8 +92,14 @@ class NeuralNet(BaseEstimator):
             name = raw_name + str(name_counts[raw_name] - 1)
             layer.set_name(name)
 
+    def _initialize_lambda2(self):
+        for layer in self:
+            if layer.lambda2 is not None:
+                continue
+            layer.set_lambda2(self.lambda2)
+
     def _initialize_updaters(self):
-        for layer in self.layers:
+        for layer in self:
             if layer.updater is not None:
                 continue
             if self.updater is None:
@@ -87,15 +107,9 @@ class NeuralNet(BaseEstimator):
                                 "or for the neural net as a whole.")
             layer.set_updater(self.updater)
 
-    def _initialize_lambda2(self):
-        for layer in self.layers:
-            if layer.lambda2 is not None:
-                continue
-            layer.set_lambda2(self.lambda2)
-
     def _initialize_connections(self):
         if not self.connection_pattern:
-            for layer0, layer1 in zip(self.layers[:-1], self.layers[1:]):
+            for layer0, layer1 in zip(self[:-1], self[1:]):
                 if layer0.next_layer is None:
                     layer0.set_next_layer(layer1)
                 if layer1.prev_layer is None:
@@ -103,15 +117,25 @@ class NeuralNet(BaseEstimator):
         else:
             connect_layers(self.layers, self.connection_pattern)
 
-    def _get_cost_function(self, X, y, deterministic=True):
+    def _get_cost_function(self):
+        return mse if self.regression else crossentropy
+
+    def _get_encoder(self, y):
+        if self.regression:
+            encoder = IdleTransformer()
+        else:
+            encoder = OneHotEncoder(sparse=False, dtype=y.dtype)
+        encoder.fit(y.reshape(-1, 1))
+        return encoder
+
+    def _get_cost(self, X, y, deterministic=True):
         y_pred = self.feed_forward(X, deterministic=deterministic)
         y_pred.name = 'y_pred'
         cost = self.cost_function(y, y_pred)
         cost += self._get_l2_cost()
         return cost
 
-    def _initialize_functions(self, X, y):
-        # symbolic variables
+    def _initialize_symbolic_variables(self, X, y):
         ys = T.matrix('y').astype(theano.config.floatX)
         ndim = X.ndim
         if self.recurrent and (ndim in (1, 2)):
@@ -127,17 +151,21 @@ class NeuralNet(BaseEstimator):
             else:
                 raise ValueError("Input must be 2D or 4D, instead got {}D."
                                  "".format(ndim))
+        self.symbols_ = {'Xs': Xs, 'ys': ys, 'variables': [Xs, ys]}
+
+    def _initialize_functions(self):
+        Xs, ys = self.symbols_['Xs'], self.symbols_['ys']
 
         # generate train function
-        cost_train = self._get_cost_function(Xs, ys, False)
-        updates = [layer.get_updates(cost_train) for layer in self.layers
+        cost_train = self._get_cost(Xs, ys, False)
+        updates = [layer.get_updates(cost_train) for layer in self
                    if layer.updater]
         updates = flatten(updates)
         self.train_ = function([Xs, ys], cost_train, updates=updates,
                                allow_input_downcast=True)
 
         # generate test function
-        cost_test = self._get_cost_function(Xs, ys, True)
+        cost_test = self._get_cost(Xs, ys, True)
         self.test_ = function([Xs, ys], cost_test,
                               allow_input_downcast=True)
 
@@ -157,12 +185,16 @@ class NeuralNet(BaseEstimator):
         self._initialize_connections()
 
         # initialize layers
-        for layer in self.layers:
+        for layer in self:
             layer.initialize(X, y)
 
+        # initialize cost function
+        if self.cost_function is None:
+            self.cost_function = self._get_cost_function()
+
         # initialize encoder
-        self.encoder_ = OneHotEncoder(
-            sparse=False, dtype=y.dtype).fit(y.reshape(-1, 1))
+        if self.encoder is None:
+            self.encoder = self._get_encoder(y)
 
         # progress of cost function
         self.train_history_ = []
@@ -175,20 +207,17 @@ class NeuralNet(BaseEstimator):
             "-------|------------|------------|-----------|-----------|------"
         )
 
+        # generate symbolic theano variables
+        self._initialize_symbolic_variables(X, y)
+
         # generate theano functions
-        self._initialize_functions(X, y)
+        self._initialize_functions()
+
+        self.is_init_ = True
 
         # print layer infos
         if self.verbose:
-            shapes = [param.get_value().shape for param in
-                      flatten(self.get_layer_params()) if param]
-            nparams = reduce(op.add, [reduce(op.mul, shape) for
-                                      shape in shapes])
-            print("# ~=* Neural Network with {} learnable parameters *=~ "
-                  "".format(nparams))
-            print("\n")
             self._print_layer_info()
-        self.is_init_ = True
 
     def fit(self, X, y, max_iter=5):
         if not hasattr(self, 'is_init_'):
@@ -197,9 +226,9 @@ class NeuralNet(BaseEstimator):
         self._set_hash(X, y)
         X_train, X_valid, labels_train, labels_valid = (
             self.train_test_split(X, y))
-        y_train = self.encoder_.transform(labels_train.reshape(-1, 1))
+        y_train = self.encoder.transform(labels_train.reshape(-1, 1))
         if labels_valid.size > 0:
-            y_valid = self.encoder_.transform(labels_valid.reshape(-1, 1))
+            y_valid = self.encoder.transform(labels_valid.reshape(-1, 1))
         if self.verbose:
             print(self.header_)
             num_epochs_past = len(self.train_history_)
@@ -220,7 +249,10 @@ class NeuralNet(BaseEstimator):
                     valid_cost.append(self._fit(Xb, yb, mode='test'))
                 # TODO: inefficient since 2 predictions are made on
                 # X_valid where 1 would suffice
-                accuracy_valid = self.score(X_valid, labels_valid, True)
+                if self.regression:
+                    accuracy_valid = 0.
+                else:
+                    accuracy_valid = self.score(X_valid, labels_valid, True)
                 mean_valid = np.mean(valid_cost) if valid_cost else 0
             else:
                 accuracy_valid = 0.
@@ -238,7 +270,7 @@ class NeuralNet(BaseEstimator):
                 mean_train,
                 mean_valid,
                 mean_train / mean_valid if mean_valid else 0.,
-                accuracy_valid,
+                accuracy_valid if not self.regression else -1,
                 toc - tic,
             ))
         return self
@@ -251,7 +283,7 @@ class NeuralNet(BaseEstimator):
         return cost
 
     def feed_forward(self, X, deterministic=False):
-        return self.layers[-1].get_output(X, deterministic=deterministic)
+        return self[-1].get_output(X, deterministic=deterministic)
 
     def predict_proba(self, X):
         probas = []
@@ -261,7 +293,10 @@ class NeuralNet(BaseEstimator):
 
     def predict(self, X):
         y_prob = self.predict_proba(X)
-        return np.argmax(y_prob, axis=1)
+        if self.regression:
+            return y_prob
+        else:
+            return np.argmax(y_prob, axis=1)
 
     def score(self, X, labels, accuracy=False):
         if X.shape[0] != labels.shape[0]:
@@ -270,7 +305,7 @@ class NeuralNet(BaseEstimator):
                 " y.shape[0] is {}".format(X.shape[0], labels.shape[0])
             )
         if not accuracy:
-            y = self.encoder_.transform(labels.reshape(-1, 1))
+            y = self.encoder.transform(labels.reshape(-1, 1))
             score_batches = []
             for Xb, yb in self.iterator(X, y):
                 score_batches.extend(Xb.shape[0] * [self.test_(Xb, yb) + 0.])
@@ -282,7 +317,10 @@ class NeuralNet(BaseEstimator):
     def train_test_split(self, X, y):
         eval_size = self.eval_size
         if eval_size:
-            kf = StratifiedKFold(y, round(1. / eval_size))
+            if self.regression:
+                kf = KFold(y.shape[0], round(1. / eval_size))
+            else:
+                kf = StratifiedKFold(y, round(1. / eval_size))
             train_indices, valid_indices = next(iter(kf))
             X_train, y_train = X[train_indices], y[train_indices]
             X_valid, y_valid = X[valid_indices], y[valid_indices]
@@ -309,26 +347,108 @@ class NeuralNet(BaseEstimator):
         return X_valid, y_valid
 
     def _print_layer_info(self):
-        print("## Layer information")
-        print("  # | {:<18} | {:<18} | {:>12} ".format(
-            "name", "output shape", "total"))
-        print("----|-{}-|-{}-|-{}-".format(
-            "-" * 18, "-" * 18, "-" * 12))
-        for num, layer in enumerate(self.layers):
-            output_shape = tuple(layer.get_output_shape())
-            row = " {:>2} | {:<18} | {:<18} | {:>12}"
-            print(row.format(
-                num,
-                layer.name,
-                str(output_shape),
-                str(reduce(op.mul, output_shape[1:])),
-            ))
+        shapes = [param.get_value().shape for param in
+                  flatten(self.get_layer_params()) if param]
+        nparams = reduce(op.add, [reduce(op.mul, shape) for
+                                  shape in shapes])
+        print("# Neural Network with {} learnable parameters"
+              "".format(nparams))
         print("\n")
+
+        if any([isinstance(layer, Conv2DLayer) for layer in self]):
+            self._print_layer_conv_info()
+        else:
+            self._print_layer_plain_info()
+
+    def _print_layer_plain_info(self):
+        print("## Layer information")
+        header = ['#', 'name', 'output shape', 'total']
+        nums = range(len(self.layers))
+        names = [layer.name for layer in self.layers]
+        output_shapes = [layer.get_output_shape() for layer in self]
+        totals = [str(reduce(op.mul, shape[1:])) for shape in output_shapes]
+        output_shapes = ['x'.join(map(str, shape[1:]))
+                         for shape in output_shapes]
+        table = OrderedDict([
+            ('#', nums),
+            ('name', names),
+            ('output shape', output_shapes),
+            ('total', totals),
+        ])
+        print(tabulate(table, 'keys', tablefmt='pipe'))
+        print("")
+
+    def _print_layer_conv_info(self):
+        if self.verbose > 1:
+            detailed = True
+            tablefmt = 'simple'
+        else:
+            detailed = False
+            tablefmt = 'pipe'
+        print("## Layer information")
+        print(get_conv_infos(self, detailed=detailed, tablefmt=tablefmt))
+        print("\nExplanation")
+        print("    X, Y:    image dimensions")
+        print("    cap.:    learning capacity")
+        print("    cov.:    coverage of image")
+        print("    {}: capacity too low (<1/6)"
+              "".format("{}{}{}".format(MAG, "magenta", END)))
+        print("    {}:    image coverage too high (>100%)"
+              "".format("{}{}{}".format(CYA, "cyan", END)))
+        print("    {}:     capacity too low and coverage too high\n"
+              "".format("{}{}{}".format(RED, "red", END)))
+
+    def save_params(self, filename):
+        params = [layer.get_params() for layer in self]
+        with open(filename, 'wb') as f:
+            pickle.dump(params, f, -1)
+
+    @staticmethod
+    def _param_alignment(shapes0, shapes1):
+        shapes0 = map(str, shapes0)
+        shapes1 = map(str, shapes1)
+        matcher = SequenceMatcher(a=shapes0, b=shapes1)
+        matches = []
+        for block in matcher.get_matching_blocks():
+            if block.size == 0:
+                continue
+            matches.append((list(range(block.a, block.a + block.size)),
+                            list(range(block.b, block.b + block.size))))
+        result = [line for match in matches for line in zip(*match)]
+        return result
+
+    def load_params(self, filename):
+        if not hasattr(self, 'is_init_'):
+            raise AttributeError("Before loading params, please initialize "
+                                 "the network with the data, e.g. by calling "
+                                 "my_net.initialize(X, y).")
+
+        params_loaded = flatten(pickle.load(open(filename, 'rb')))
+        params_current = flatten([layer.get_params() for layer in self])
+
+        params_src = [w for w in params_loaded if w]
+        params_target = [w for w in params_current if w]
+        shapes_src = [param.get_value().shape for param in params_src]
+        shapes_target = [param.get_value().shape for param in params_target]
+        matches = self._param_alignment(shapes_src, shapes_target)
+        for i, j in matches:
+            # ii, jj are the indices of the layers
+            ii, jj = int(0.5 * i) + 1, int(0.5 * j) + 1
+            param_src = params_src[i]
+            params_target[j].set_value(param_src.get_value())
+            if self.verbose:
+                param_name = param_src.name + ' '
+                param_shape = param_src.get_value().shape
+                param_shape = 'x'.join(map(str, param_shape))
+                layer_name = self[jj].name
+                message = ("Loaded parameter {}(shape {}) from layer {} to "
+                           "layer {} ({}).")
+                print(message.format(
+                    param_name, param_shape, ii, jj, layer_name))
 
 
 class MultipleInputNet(NeuralNet):
-    def _initialize_functions(self, many_X, y):
-        # symbolic variables
+    def _initialize_symbolic_variables(self, many_X, y):
         ys = T.matrix('y').astype(theano.config.floatX)
         many_Xs = []
         for X in many_X:
@@ -340,23 +460,27 @@ class MultipleInputNet(NeuralNet):
                 raise ValueError("Input must be 2D or 4D, instead got {}D."
                                  "".format(X.ndim))
             many_Xs.append(Xs)
+        self.symbols_ = {'Xs': many_Xs, 'ys': ys, 'variables': many_X + [ys]}
+
+    def _initialize_functions(self):
+        Xs, ys = self.symbols_['Xs'], self.symbols_['ys']
 
         # generate train function
-        cost_train = self._get_cost_function(many_Xs, ys, False)
-        updates = [layer.get_updates(cost_train) for layer in self.layers
+        cost_train = self._get_cost(Xs, ys, False)
+        updates = [layer.get_updates(cost_train) for layer in self
                    if layer.updater]
         updates = flatten(updates)
-        self.train_ = function(many_Xs + [ys], cost_train, updates=updates,
+        self.train_ = function(Xs + [ys], cost_train, updates=updates,
                                allow_input_downcast=True)
 
         # generate test function
-        cost_test = self._get_cost_function(many_Xs, ys, True)
-        self.test_ = function(many_Xs + [ys], cost_test,
+        cost_test = self._get_cost(Xs, ys, True)
+        self.test_ = function(Xs + [ys], cost_test,
                               allow_input_downcast=True)
 
         # generate predict function
         self._predict_proba = function(
-            many_Xs, self.feed_forward(many_Xs, deterministic=True),
+            Xs, self.feed_forward(Xs, deterministic=True),
             allow_input_downcast=True)
 
     def initialize(self, many_X, y):
@@ -374,6 +498,9 @@ class MultipleInputNet(NeuralNet):
             cost = self.test_(*(X + [y]))
         return cost
 
+    def feed_forward(self, X, deterministic=False):
+        return self[-1].get_output(X, deterministic=deterministic)
+
     def predict_proba(self, many_X):
         return self._predict_proba(*many_X)
 
@@ -385,7 +512,7 @@ class MultipleInputNet(NeuralNet):
                                        labels.shape[0])
             )
         if not accuracy:
-            y = self.encoder_.transform(labels.reshape(-1, 1))
+            y = self.encoder.transform(labels.reshape(-1, 1))
             return self.test_(*(X + [y])) + 0.
         else:
             y_pred = self.predict(many_X)
@@ -398,7 +525,10 @@ class MultipleInputNet(NeuralNet):
 
         for X in many_X:
             if eval_size:
-                kf = StratifiedKFold(y, round(1. / eval_size))
+                if self.regression:
+                    kf = KFold(y.shape[0], round(1. / eval_size))
+                else:
+                    kf = StratifiedKFold(y, round(1. / eval_size))
                 train_indices, valid_indices = next(iter(kf))
                 X_train, y_train = X[train_indices], y[train_indices]
                 X_valid, y_valid = X[valid_indices], y[valid_indices]
