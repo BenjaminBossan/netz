@@ -15,6 +15,7 @@ Look here for an example usage:
 
 * [MNIST](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/MNIST.ipynb)
 * [Convolutions](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Convolutions3.ipynb)
+* [How to go deep](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Going_deep.ipynb)
 * [Recurrent Nets](http://nbviewer.ipython.org/github/BenjaminBossan/netz/blob/develop/Recurrent_Rotten.ipynb)
 
 ### Tests
