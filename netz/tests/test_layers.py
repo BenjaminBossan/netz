@@ -36,8 +36,8 @@ class TestLayerUpdater:
         net.initialize(X, y)
         default_updater = get_default_arg(NeuralNet.__init__, 'updater')
 
-        assert net.layers[0].updater is None
-        for layer in net.layers[1:]:
+        assert net[0].updater is None
+        for layer in net[1:]:
             assert type(layer.updater) == type(default_updater)
 
     def test_layers_no_updater_net_other_updater(self):
@@ -49,10 +49,10 @@ class TestLayerUpdater:
         net = NeuralNet(layers1, updater=net_updater)
         net.initialize(X, y)
 
-        assert net.layers[0].updater is None
-        for layer in net.layers[1:]:
+        assert net[0].updater is None
+        for layer in net[1:]:
             assert type(layer.updater) == type(net_updater)
-            assert layer.updater is net.layers[1].updater
+            assert layer.updater is net[1].updater
 
     def test_layers_one_updater_net_no_updater(self):
         layers2 = [InputLayer(),
@@ -63,11 +63,11 @@ class TestLayerUpdater:
         net.initialize(X, y)
         default_updater = get_default_arg(NeuralNet.__init__, 'updater')
 
-        assert net.layers[0].updater is None
-        assert type(net.layers[1].updater) == type(Momentum())
-        for layer in net.layers[2:]:
+        assert net[0].updater is None
+        assert type(net[1].updater) == type(Momentum())
+        for layer in net[2:]:
             assert type(layer.updater) == type(default_updater)
-            assert layer.updater is net.layers[2].updater
+            assert layer.updater is net[2].updater
 
     def test_layers_one_updater_net_other_updater(self):
         layers2 = [InputLayer(),
@@ -78,9 +78,9 @@ class TestLayerUpdater:
         net = NeuralNet(layers2, updater=net_updater)
         net.initialize(X, y)
 
-        assert net.layers[0].updater is None
-        assert type(net.layers[1].updater) == type(Momentum())
-        for layer in net.layers[2:]:
+        assert net[0].updater is None
+        assert type(net[1].updater) == type(Momentum())
+        for layer in net[2:]:
             assert type(layer.updater) == type(net_updater)
 
     def test_layers_several_updaters(self):
@@ -92,10 +92,10 @@ class TestLayerUpdater:
         net.initialize(X, y)
         default_momentum = get_default_arg(Momentum.__init__, 'momentum')
 
-        assert net.layers[0].updater is None
-        assert type(net.layers[1].updater) == type(Momentum())
-        assert np.allclose(net.layers[1].updater.momentum,
+        assert net[0].updater is None
+        assert type(net[1].updater) == type(Momentum())
+        assert np.allclose(net[1].updater.momentum,
                            default_momentum, atol=1e-6)
-        assert type(net.layers[2].updater) == type(Nesterov())
-        assert type(net.layers[3].updater) == type(Momentum())
-        assert np.allclose(net.layers[3].updater.momentum, 555., atol=1e-6)
+        assert type(net[2].updater) == type(Nesterov())
+        assert type(net[3].updater) == type(Momentum())
+        assert np.allclose(net[3].updater.momentum, 555., atol=1e-6)

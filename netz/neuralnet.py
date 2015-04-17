@@ -45,6 +45,21 @@ class NeuralNet(BaseEstimator):
         self.connection_pattern = connection_pattern
         self.recurrent = recurrent
 
+    def __len__(self):
+        return len(self.layers)
+
+    def __getitem__(self, idx):
+        if not isinstance(idx, slice) and (idx >= len(self)):
+            raise IndexError
+        return self.layers[idx]
+
+    def __add__(self, layer):
+        if isinstance(layer, tuple) or isinstance(layer, list):
+            self.layers.extend(layer)
+        else:
+            self.layers.append(layer)
+        return self
+
     def get_layer_params(self):
         return [layer.get_params() for layer in self.layers]
 

@@ -219,5 +219,66 @@ class TestConvDropoutNet:
         for i in range(10):
             heatmap = occlusion_heatmap(net, X2D[i:i + 1], y[i])
             coord_y, coord_x = np.nonzero(heatmap == heatmap.min())
+
             assert border_size < coord_x < x_size - border_size
             assert border_size < coord_y < y_size - border_size
+
+
+class TestMagicMethodsNet:
+    @pytest.fixture(scope='function')
+    def net_and_layers(self):
+        layers = [InputLayer(),
+                  DenseLayer(100),
+                  OutputLayer()]
+        net = NeuralNet(layers)
+        return net, layers
+
+    def test_initial_layers(self, net_and_layers):
+        net, layers = net_and_layers
+
+        for layer_net, layer_layer in zip(net, layers):
+            assert layer_net is layer_layer
+
+    def test_adding_a_layer(self, net_and_layers):
+        net, layers = net_and_layers
+        layer_new = DenseLayer(123)
+        net = net + layer_new
+
+        assert net[-1] is layer_new
+
+    def test_incrementally_adding_a_layer(self, net_and_layers):
+        net, layers = net_and_layers
+        layer_new = InputLayer(5)
+        net += layer_new
+
+        assert net[-1] is layer_new
+
+    def test_incrementally_adding_tuple_of_layers(self, net_and_layers):
+        net, layers = net_and_layers
+        layers_new = (OutputLayer(), DenseLayer(9))
+        net += layers_new
+
+        assert net[-2] is layers_new[0]
+        assert net[-1] is layers_new[1]
+
+    def test_incrementally_adding_tuple_of_layers(self, net_and_layers):
+        net, layers = net_and_layers
+        layers_new = [InputLayer(), OutputLayer(), DenseLayer(1)]
+        net += layers_new
+
+        assert net[-3] is layers_new[0]
+        assert net[-2] is layers_new[1]
+        assert net[-1] is layers_new[2]
+
+    @pytest.mark.parametrize('idx', range(-3, 3))
+    def test_indexing_net(self, net_and_layers, idx):
+        net = net_and_layers[0]
+
+        assert net[idx] == net.layers[idx]
+
+    @pytest.mark.parametrize('idx', range(-3, 3))
+    def test_slicing_net(self, net_and_layers, idx):
+        net = net_and_layers[0]
+
+        assert net[idx:] == net.layers[idx:]
+        assert net[:idx] == net.layers[:idx]

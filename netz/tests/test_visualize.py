@@ -79,19 +79,19 @@ class TestVisualizePlotConvWeights:
         return net
 
     def test_plot_conv_weights_layer_1(self, net):
-        plot_conv_weights(net.layers[1])
+        plot_conv_weights(net[1])
 
     def test_plot_conv_weights_layer_2(self, net):
-        plot_conv_weights(net.layers[2])
+        plot_conv_weights(net[2])
 
     def test_plot_conv_weights_with_figsize_arg(self, net):
-        plot_conv_weights(net.layers[1], figsize=(1, 11))
+        plot_conv_weights(net[1], figsize=(1, 11))
 
     def test_plot_conv_activity_layer_1(self, net):
-        plot_conv_activity(net.layers[1], X2D[0:1])
+        plot_conv_activity(net[1], X2D[0:1])
 
     def test_plot_conv_activity_layer_2(self, net):
-        plot_conv_activity(net.layers[2], X2D[10:11])
+        plot_conv_activity(net[2], X2D[10:11])
 
     def test_plot_conv_activity_with_figsize_arg(self, net):
         plot_conv_activity(net[1], X2D[100:101], figsize=(8, 1))
