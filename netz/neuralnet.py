@@ -29,7 +29,9 @@ from utils import get_conv_infos
 from utils import IdleTransformer
 from utils import np_hash
 from utils import to_32
-from utils import CYA, END, MAG, RED
+from utils import COLORS
+
+RED, MAG, CYA, END = COLORS
 
 
 class NeuralNet(BaseEstimator):
@@ -200,12 +202,15 @@ class NeuralNet(BaseEstimator):
         self.train_history_ = []
         self.valid_history_ = []
 
-        # header for verbose output
-        self.header_ = (
-            "## Training Information\n"
-            " Epoch | Train loss | Valid loss | Train/Val | Valid acc | Dur\n"
-            "-------|------------|------------|-----------|-----------|------"
-        )
+        self.table_ = OrderedDict([
+            ('epoch', []),
+            ('train loss', []),
+            ('valid loss', []),
+            ('best', []),
+            ('train/val', []),
+            ('valid acc', []),
+            ('dur', []),
+        ])
 
         # generate symbolic theano variables
         self._initialize_symbolic_variables(X, y)
@@ -223,6 +228,11 @@ class NeuralNet(BaseEstimator):
         if not hasattr(self, 'is_init_'):
             self.initialize(X, y)
 
+        table = self.table_
+        num_epochs_past = len(self.train_history_)
+        first_iteration = True
+        best_valid = np.inf
+
         self._set_hash(X, y)
         X_train, X_valid, labels_train, labels_valid = (
             self.train_test_split(X, y))
@@ -230,8 +240,7 @@ class NeuralNet(BaseEstimator):
         if labels_valid.size > 0:
             y_valid = self.encoder.transform(labels_valid.reshape(-1, 1))
         if self.verbose:
-            print(self.header_)
-            num_epochs_past = len(self.train_history_)
+            print("## Training Information\n")
 
         for epoch in range(max_iter):
             tic = time.time()
@@ -259,20 +268,28 @@ class NeuralNet(BaseEstimator):
                 mean_valid = 0.
             self.valid_history_.append(mean_valid)
 
-            # --------- verbose feedback -----------
+            # -------------- logging ----------------
+            best_valid = mean_valid if mean_valid < best_valid else best_valid
+            toc = time.time()
+            table['epoch'].append(num_epochs_past + epoch)
+            table['train loss'].append(mean_train)
+            table['valid loss'].append(mean_valid)
+            table['best'].append(best_valid if best_valid == mean_valid else "")
+            table['train/val'].append(mean_train / mean_valid if mean_valid
+                                      else 0.)
+            table['valid acc'].append(accuracy_valid if not self.regression
+                                      else -1)
+            table['dur'].append(toc - tic)
+            self.log_ = tabulate(table, headers='keys', tablefmt='pipe',
+                                 floatfmt='.4f')
             if not self.verbose:
                 continue
-            toc = time.time()
-            template = (" {:>5} | {:>10.6f} | {:>10.6f} | {:>8.3f}  |"
-                        "{:>8.4f}   | {:>3.1f}s")
-            print(template.format(
-                num_epochs_past + epoch,
-                mean_train,
-                mean_valid,
-                mean_train / mean_valid if mean_valid else 0.,
-                accuracy_valid if not self.regression else -1,
-                toc - tic,
-            ))
+            if first_iteration:
+                print(self.log_.split('\n', 2)[0])
+                print(self.log_.split('\n', 2)[1])
+                first_iteration = False
+            print(self.log_.rsplit('\n', 1)[-1])
+
         return self
 
     def _fit(self, X, y, mode='train'):
@@ -362,7 +379,6 @@ class NeuralNet(BaseEstimator):
 
     def _print_layer_plain_info(self):
         print("## Layer information")
-        header = ['#', 'name', 'output shape', 'total']
         nums = range(len(self.layers))
         names = [layer.name for layer in self.layers]
         output_shapes = [layer.get_output_shape() for layer in self]

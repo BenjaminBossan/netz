@@ -12,10 +12,11 @@ import theano
 from theano import shared
 floatX = theano.config.floatX
 
-RED = '\033[31m'
-MAG = '\033[35m'
-CYA = '\033[36m'
-END = '\033[0m'
+RED = '\033[31m',
+MAG = '\033[35m',
+CYA = '\033[36m',
+END = '\033[0m',
+COLORS = (RED, MAG, CYA, END)
 
 
 def to_32(x):
