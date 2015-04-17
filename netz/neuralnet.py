@@ -273,12 +273,13 @@ class NeuralNet(BaseEstimator):
             toc = time.time()
             table['epoch'].append(num_epochs_past + epoch)
             table['train loss'].append(mean_train)
-            table['valid loss'].append(mean_valid)
-            table['best'].append(best_valid if best_valid == mean_valid else "")
+            table['valid loss'].append(mean_valid if mean_valid else "")
+            table['best'].append(best_valid if (best_valid == mean_valid)
+                                 and mean_valid else "")
             table['train/val'].append(mean_train / mean_valid if mean_valid
-                                      else 0.)
-            table['valid acc'].append(accuracy_valid if not self.regression
-                                      else -1)
+                                      else "")
+            table['valid acc'].append(accuracy_valid if (not self.regression)
+                                      and accuracy_valid else "")
             table['dur'].append(toc - tic)
             self.log_ = tabulate(table, headers='keys', tablefmt='pipe',
                                  floatfmt='.4f')
