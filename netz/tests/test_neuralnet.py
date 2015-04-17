@@ -14,19 +14,20 @@ from ..layers import InputConcatLayer
 from ..layers import InputLayer
 from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
+from ..layers import PartialInputLayer
+from ..neuralnet import MultipleInputNet
 from ..neuralnet import NeuralNet
 from ..nonlinearities import rectify
 from ..updaters import Adadelta
 from ..updaters import Momentum
 from ..updaters import SGD
+from ..utils import flatten
 from ..utils import occlusion_heatmap
 from tutils import check_weights_shrink
 from tutils import check_relative_diff_similar
 
 np.random.seed(17411)
 # Number of numerically checked gradients per paramter (more -> slower)
-NUM_CHECK = 3
-EPSILON = 1e-6
 MAX_ITER = 20
 # data
 df = pd.read_csv('netz/tests/mnist_short.csv')
@@ -50,13 +51,81 @@ class TestVanillaNet:
         net.fit(X, y, max_iter=100)
         return net
 
+    @pytest.fixture(scope='session')
+    def untrained_net(self):
+        layers = [InputLayer(),
+                  DenseLayer(100),
+                  OutputLayer()]
+        net = NeuralNet(
+            layers, cost_function=crossentropy,
+            eval_size=0.5,
+        )
+        return net
+
+    @pytest.fixture(scope='session')
+    def net2(self):
+        layers = [InputLayer(),
+                  DenseLayer(100),
+                  DenseLayer(33),
+                  OutputLayer()]
+        net = NeuralNet(
+            layers, cost_function=crossentropy,
+            eval_size=0.5,
+        )
+        net.fit(X, y, max_iter=100)
+        return net
+
     def test_initial_loss(self, net):
         # At initialization, the cost should be close to random:
         assert np.allclose(net.train_history_[0], -np.log(1 / 10), atol=0.5)
         assert np.allclose(net.valid_history_[0], -np.log(1 / 10), atol=0.5)
 
+    def test_save_and_load_params_with_uninitialized(self, untrained_net):
+        with pytest.raises(AttributeError):
+            untrained_net.load_params('some_params')
 
-class TestOverfittingNet():
+    def test_save_and_load_params_with_initialized(self, net, untrained_net):
+        filename = 'temp_params.np'
+        params_old = [layer.get_params() for layer in net.layers]
+        net.save_params(filename)
+        score_old = net.score(X, y)
+
+        untrained_net.initialize(X, y)
+        untrained_net.load_params(filename)
+        params_new = [layer.get_params() for layer in untrained_net.layers]
+        score_new = untrained_net.score(X, y)
+
+        # assert score_new == score_old
+        assert np.isclose(score_old, score_new)
+        for param_old, param_new in zip(params_old, params_new):
+            for p_old, p_new in zip(param_old, param_new):
+                if p_old:
+                    assert (p_old.get_value() == p_new.get_value()).all()
+
+    def test_load_params_matches_shapes(self, net, net2):
+        filename = 'temp_params.np'
+        params1 = flatten(layer.get_params() for layer in net.layers)
+        params1 = [p.get_value() for p in params1 if p]
+        params2 = flatten(layer.get_params() for layer in net2.layers)
+        params2 = [p.get_value() for p in params2 if p]
+
+        # before, parameters should differ
+        assert not (params1[0] == params2[0]).all()
+        assert not (params1[1] == params2[1]).all()
+        assert not (params1[3] == params2[5]).all()
+
+        net.save_params(filename)
+        net2.load_params(filename)
+        params2 = flatten(layer.get_params() for layer in net2.layers)
+        params2 = [p.get_value() for p in params2 if p]
+
+        # afterwards, these parameters should match
+        assert (params1[0] == params2[0]).all()
+        assert (params1[1] == params2[1]).all()
+        assert (params1[3] == params2[5]).all()
+
+
+class TestOverfittingNet:
     n = 10  # number of samples
 
     @pytest.fixture(scope='session')
@@ -73,8 +142,8 @@ class TestOverfittingNet():
         return net
 
     def test_net_learns_small_sample_by_heart(self, net):
-        assert np.allclose(net.train_history_[-1], 0., atol=1e-2)
-        assert not np.allclose(net.valid_history_[-1], 0., atol=1e-2)
+        assert np.isclose(net.train_history_[-1], 0., atol=1e-2)
+        assert not np.isclose(net.valid_history_[-1], 0., atol=1e-2)
 
 
 class TestSgdNet:
@@ -116,7 +185,7 @@ class TestSgdNet:
             assert layer1.prev_layer is layer0
 
     def test_encoder(self, net):
-        yt = np.argmax(net.encoder_.transform(y.reshape(-1, 1)), axis=1)
+        yt = np.argmax(net.encoder.transform(y.reshape(-1, 1)), axis=1)
         assert (yt == y).all()
 
 
