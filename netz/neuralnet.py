@@ -28,7 +28,6 @@ from utils import flatten
 from utils import get_conv_infos
 from utils import IdleTransformer
 from utils import np_hash
-from utils import to_32
 from utils import COLORS
 
 RED, MAG, CYA, END = COLORS
