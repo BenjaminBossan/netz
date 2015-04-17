@@ -1,5 +1,7 @@
 *.pyc
 *~
+*.np
+*.pkl
 *#
 .ipynb_checkpoints
 attic.txt
