@@ -97,7 +97,7 @@ class GradChecker(object):
             self._init(x, y)
         xs, ys, y_ = self.xs_, self.ys_, self.y_
         net = self.net
-        cost = net._get_cost_function(xs, ys, True)
+        cost = net._get_cost(xs, ys, True)
 
         theano_grads_all = []
         numerical_grads_all = []
