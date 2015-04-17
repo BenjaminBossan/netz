@@ -6,6 +6,7 @@ from .noise import *
 from .normalization import *
 from .output import *
 from .pool import *
+from .shape import *
 from .recurrent import *
 
 from netz import utils
