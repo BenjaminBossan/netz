@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 import itertools as it
+import operator as op
 
 import joblib
 import numpy as np
+from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin
+from tabulate import tabulate
 import theano
 from theano import shared
 floatX = theano.config.floatX
+
+RED = '\033[31m'
+MAG = '\033[35m'
+CYA = '\033[36m'
+END = '\033[0m'
 
 
 def to_32(x):
@@ -166,3 +175,155 @@ def occlusion_heatmap(net, x, y, square_length=7):
         prob = net.predict_proba(x_occluded.reshape(1, 1, shape[2], shape[3]))
         heat_array[i, j] = prob[0, y]
     return heat_array
+
+
+class IdleTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        self
+
+    def transform(self, X, y=None):
+        return X
+
+
+def get_real_filter(layers, img_size):
+    """Get the real filter sizes of each layer involved in
+    convoluation. See Xudong Cao:
+    https://www.kaggle.com/c/datasciencebowl/forums/t/13166/happy-lantern-festival-report-and-code
+
+    This does not yet take into consideration feature pooling,
+    padding, striding and similar gimmicks.
+
+    """
+    # imports here to prevent circular dependencies
+    from layers import Conv2DLayer
+    from layers import MaxPool2DLayer
+
+    real_filter = np.zeros((len(layers), 2))
+    conv_mode = True
+    first_conv_layer = True
+    expon = np.ones((1, 2))
+
+    for i, layer in enumerate(layers[1:]):
+        j = i + 1
+        if not conv_mode:
+            real_filter[j] = img_size
+            continue
+
+        if isinstance(layer, Conv2DLayer):
+            if not first_conv_layer:
+                new_filter = np.array(layer.filter_size) * expon
+                real_filter[j] = new_filter
+            else:
+                new_filter = np.array(layer.filter_size) * expon
+                real_filter[j] = new_filter
+                first_conv_layer = False
+        elif isinstance(layer, MaxPool2DLayer):
+            real_filter[j] = real_filter[i]
+            expon *= np.array(layer.ds)
+        elif isinstance(layer, MaxPool2DLayer):
+            expon *= np.array(layer.ds)
+            real_filter[j] = real_filter[i]
+        else:
+            conv_mode = False
+            real_filter[j] = img_size
+
+    real_filter[0] = img_size
+    return real_filter
+
+
+def get_receptive_field(layers, img_size):
+    """Get the real filter sizes of each layer involved in
+    convoluation. See Xudong Cao:
+    https://www.kaggle.com/c/datasciencebowl/forums/t/13166/happy-lantern-festival-report-and-code
+
+    This does not yet take into consideration feature pooling,
+    padding, striding and similar gimmicks.
+
+    """
+    # imports here to prevent circular dependencies
+    from layers import Conv2DLayer
+    from layers import MaxPool2DLayer
+
+    receptive_field = np.zeros((len(layers), 2))
+    conv_mode = True
+    first_conv_layer = True
+    expon = np.ones((1, 2))
+
+    for i, layer in enumerate(layers[1:]):
+        j = i + 1
+        if not conv_mode:
+            #receptive_field[j] = receptive_field[i]
+            receptive_field[j] = img_size
+            continue
+
+        if isinstance(layer, Conv2DLayer):
+            if not first_conv_layer:
+                last_field = receptive_field[i]
+                new_field = (last_field + expon *
+                             (np.array(layer.filter_size) - 1))
+                receptive_field[j] = new_field
+            else:
+                receptive_field[j] = layer.filter_size
+                first_conv_layer = False
+        elif isinstance(layer, MaxPool2DLayer):
+            receptive_field[j] = receptive_field[i]
+            expon *= np.array(layer.ds)
+        elif isinstance(layer, MaxPool2DLayer):
+            expon *= np.array(layer.ds)
+            receptive_field[j] = receptive_field[i]
+        else:
+            conv_mode = False
+            receptive_field[j] = img_size
+
+    receptive_field[0] = img_size
+    return receptive_field
+
+
+def get_conv_infos(net, min_capacity=100./6, tablefmt='pipe', detailed=False):
+    if not hasattr(net, 'is_init_'):
+        raise AttributeError("Please initialize the net before callings this "
+                             "function, for instance by calling "
+                             "net.initialize(X, y)")
+
+    layers = net.layers
+    img_size = layers[0].get_output_shape()[2:]
+
+    header = ['name', 'size', 'total', 'cap. Y [%]', 'cap. X [%]',
+              'cov. Y [%]', 'cov. X [%]']
+    if detailed:
+        header += ['filter Y', 'filter X', 'field Y', 'field X']
+
+    shapes = [layer.get_output_shape()[1:] for layer in layers]
+    totals = [str(reduce(op.mul, shape)) for shape in shapes]
+    shapes = ['x'.join(map(str, shape)) for shape in shapes]
+    shapes = np.array(shapes).reshape(-1, 1)
+    totals = np.array(totals).reshape(-1, 1)
+
+    real_filters = get_real_filter(layers, img_size)
+    receptive_fields = get_receptive_field(layers, img_size)
+    capacity = 100 * real_filters / receptive_fields
+    capacity[np.negative(np.isfinite(capacity))] = 1
+    img_coverage = 100 * receptive_fields / img_size
+    layer_names = [layer.name if layer.name
+                   else str(layer).rsplit('.')[-1].split(' ')[0]
+                   for layer in layers]
+
+    colored_names = []
+    for name, (covy, covx), (capy, capx) in zip(
+            layer_names, img_coverage, capacity):
+        if (((covy > 100) or (covx > 100)) and
+            ((capy < min_capacity) or (capx < min_capacity))):
+            name = "{}{}{}".format(RED, name, END)
+        elif (covy > 100) or (covx > 100):
+            name = "{}{}{}".format(CYA, name, END)
+        elif (capy < min_capacity) or (capx < min_capacity):
+            name = "{}{}{}".format(MAG, name, END)
+        colored_names.append(name)
+    colored_names = np.array(colored_names).reshape(-1, 1)
+
+    table = np.hstack((colored_names, shapes, totals, capacity, img_coverage))
+    if detailed:
+        table = np.hstack((table, real_filters.astype(int),
+                           receptive_fields.astype(int)))
+
+    return tabulate(table, header, tablefmt=tablefmt, floatfmt='.2f')
