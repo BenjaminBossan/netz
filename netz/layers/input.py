@@ -62,14 +62,14 @@ class InputConcatLayer(BaseLayer):
         input_shapes = [layer.get_output_shape() for
                         layer in self.prev_layer]
         self.input_shapes = input_shapes
-        if not np.equal(*[len(input_shape) for input_shape in input_shapes]):
+        if len(set(map(len, input_shapes))) > 1:
             raise ValueError("Input dimensions for InputConcatLayer should "
                              "all be equal.")
         for d in range(len(input_shapes[0])):
             if d == 1:
                 continue
-            if not np.equal(*[input_shape[d] for input_shape in input_shapes]):
-                raise ValueError("All input shapes except for axis one "
+            if len(set([input_shape[d] for input_shape in input_shapes])) > 1:
+                raise ValueError("All input shapes except for axis 1 "
                                  "must be equal for InputConcatLayer.")
 
     def set_updater(self, *args, **kwargs):
