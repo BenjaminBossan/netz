@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from ..costfunctions import crossentropy
+from ..iterators import MultipleInputsBatchIterator
 from ..layers import Conv2DLayer
 from ..layers import DenseLayer
 from ..layers import DropoutLayer
@@ -282,3 +283,35 @@ class TestMagicMethodsNet:
 
         assert net[idx:] == net.layers[idx:]
         assert net[:idx] == net.layers[:idx]
+
+
+class TestMultipleInputNets:
+    @pytest.fixture(scope='function')
+    def net(self):
+        layers = [PartialInputLayer(idx=0, name='partial0'),
+                  PartialInputLayer(idx=1, name='partial1'),
+                  DenseLayer(100, name='dense0'),
+                  DenseLayer(100, name='dense1'),
+                  InputConcatLayer(name='concat'),
+                  OutputLayer(name='output')]
+        connection_pattern = '''
+        partial0->dense0
+        partial1->dense1
+        dense0->concat
+        dense1->concat
+        concat->output
+        '''
+        net = MultipleInputNet(
+            layers,
+            iterator=MultipleInputsBatchIterator(5),
+            connection_pattern=connection_pattern
+        )
+        return net
+
+    def test_multiple_input_net_trains(self, net):
+        net.fit([X, X], y, max_iter=5)
+        net.fit((X, X[::-1]), y, max_iter=5)
+
+    def test_raises_type_error_when_not_list_or_tuple(self, net):
+        with pytest.raises(TypeError):
+            net.fit(X, y, max_iter=5)
