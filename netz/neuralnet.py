@@ -206,7 +206,7 @@ class NeuralNet(BaseEstimator):
             ('epoch', []),
             ('train loss', []),
             ('valid loss', []),
-            ('best', []),
+            ('best val', []),
             ('train/val', []),
             ('valid acc', []),
             ('dur', []),
@@ -274,8 +274,8 @@ class NeuralNet(BaseEstimator):
             table['epoch'].append(num_epochs_past + epoch)
             table['train loss'].append(mean_train)
             table['valid loss'].append(mean_valid if mean_valid else "")
-            table['best'].append(best_valid if (best_valid == mean_valid)
-                                 and mean_valid else "")
+            table['best val'].append(best_valid if (best_valid == mean_valid)
+                                     and mean_valid else "")
             table['train/val'].append(mean_train / mean_valid if mean_valid
                                       else "")
             table['valid acc'].append(accuracy_valid if (not self.regression)
