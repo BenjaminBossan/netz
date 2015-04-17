@@ -38,9 +38,10 @@ class MaxPool2DLayer(BaseLayer):
 
 class FeaturePoolLayer(BaseLayer):
     """Currently only supports pooling over dimension 1."""
-    def __init__(self, ds=2, pool_function=T.max, *args, **kwargs):
+    def __init__(self, ds=2, axis=1, pool_function=T.max, *args, **kwargs):
         super(FeaturePoolLayer, self).__init__(*args, **kwargs)
         self.ds = ds
+        self.axis = axis
         self.pool_function = pool_function
 
     def initialize(self, X, y):
@@ -51,25 +52,28 @@ class FeaturePoolLayer(BaseLayer):
         return [None]
 
     @staticmethod
-    def _get_pooled_shape(shape, ds):
-        num_feature_maps = shape[1]
+    def _get_pooled_shape_plus1(shape, ds, axis):
+        num_feature_maps = shape[axis]
         num_feature_maps_out = num_feature_maps // ds
 
         pool_shape = list(shape)
-        pool_shape.insert(1, num_feature_maps_out)
-        pool_shape[2] = ds
+        pool_shape.insert(axis, num_feature_maps_out)
+        pool_shape[axis + 1] = ds
         return pool_shape
 
     def get_output(self, X, *args, **kwargs):
         input = self.prev_layer.get_output(X, *args, **kwargs)
 
-        pool_shape = self._get_pooled_shape(input.shape, self.ds)
+        pool_shape = self._get_pooled_shape_plus1(input.shape, self.ds,
+                                                  self.axis)
         input_reshaped = input.reshape(pool_shape)
-        output = self.pool_function(input_reshaped, axis=2)
+        output = self.pool_function(input_reshaped, axis=self.axis + 1)
 
         return output
 
     def get_output_shape(self):
         input_shape = self.prev_layer.get_output_shape()
-        output_shape = self._get_pooled_shape(input_shape, self.ds)
-        return tuple(output_shape[:2] + output_shape[3:])
+        output_shape = self._get_pooled_shape_plus1(input_shape, self.ds,
+                                                    self.axis)
+        return tuple(output_shape[:self.axis + 1] +
+                     output_shape[self.axis + 2:])
