@@ -140,4 +140,3 @@ class BaseLayer(object):
             return self.name
         else:
             return super(BaseLayer, self).__repr__()
-
