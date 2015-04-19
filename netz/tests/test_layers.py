@@ -3,18 +3,12 @@ from __future__ import division
 
 from mock import Mock
 import numpy as np
-import pandas as pd
 import pytest
 import theano
 
-from ..costfunctions import crossentropy
-from ..layers import Conv2DLayer
 from ..layers import DenseLayer
-from ..layers import DropoutLayer
 from ..layers import FeaturePoolLayer
-from ..layers import InputConcatLayer
 from ..layers import InputLayer
-from ..layers import MaxPool2DLayer
 from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
 from ..updaters import Momentum
