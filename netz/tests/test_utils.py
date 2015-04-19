@@ -46,6 +46,7 @@ class TestSharedZerosLike:
     def test_shared_zeros_like_name(self, name):
         arr_old = shared(np.ones((3, 4, 5)))
         arr = shared_zeros_like(arr_old, name=name)
+        assert arr.name == name
 
     @pytest.mark.parametrize('broadcastable', [
         (False, False, False),
