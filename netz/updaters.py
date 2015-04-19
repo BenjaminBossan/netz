@@ -162,6 +162,6 @@ class GradientClipping(object):
         clipped_updates = []
         for var_old, var_new in updates:
             norm_var_new = self._get_norm(var_new)
-            var_new = self._clip_norm(var_new, norm_var_new, self.norm_max)
+            var_new = self._clip_norm(var_new, norm_var_new, norm_max)
             clipped_updates.append((var_old, var_new))
         return clipped_updates
