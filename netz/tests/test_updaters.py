@@ -1,24 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
-from copy import deepcopy
 
 from mock import Mock
 import numpy as np
-import pandas as pd
 import pytest
 import theano
 
-from ..costfunctions import crossentropy
-from ..layers import Conv2DLayer
-from ..layers import DenseLayer
-from ..layers import DropoutLayer
-from ..layers import InputConcatLayer
-from ..layers import InputLayer
-from ..layers import MaxPool2DLayer
-from ..layers import OutputLayer
-from ..neuralnet import NeuralNet
 from ..updaters import Momentum
-from ..updaters import Nesterov
 from ..updaters import GradientClipping
 
 np.random.seed(17412)
@@ -56,10 +44,6 @@ class TestGradientClipping:
             grad_clip._clip_norm(X, norm_var, norm_max)
         )
         return clip_norm
-
-    @pytest.fixture
-    def clipped_grads(self, grad_clip, max_norm):
-        return updates
 
     @pytest.mark.parametrize('arr, norm', [
         (np.zeros((11, 2)), 0.),
