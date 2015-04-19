@@ -5,7 +5,6 @@ no exception is raised.
 # -*- coding: utf-8 -*-
 from __future__ import division
 
-from mock import patch
 import numpy as np
 import pandas as pd
 import pytest
@@ -19,7 +18,6 @@ from ..layers import OutputLayer
 from ..neuralnet import NeuralNet
 from ..nonlinearities import rectify
 from ..updaters import Adadelta
-from ..utils import occlusion_heatmap
 from ..visualize import plot_conv_weights
 from ..visualize import plot_conv_activity
 from ..visualize import plot_loss
@@ -97,7 +95,7 @@ class TestVisualizePlotConvWeights:
         plot_conv_activity(net[1], X2D[100:101], figsize=(8, 1))
 
 
-class TestVisualizePlotConvWeights:
+class TestVisualizePlotOcclusion:
     @pytest.fixture
     def net(self):
         layers = [InputLayer(),
