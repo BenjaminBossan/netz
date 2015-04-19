@@ -331,7 +331,7 @@ class TestMagicMethodsNet:
         assert net[-2] is layers_new[0]
         assert net[-1] is layers_new[1]
 
-    def test_incrementally_adding_tuple_of_layers(self, net_and_layers):
+    def test_incrementally_adding_list_of_layers(self, net_and_layers):
         net, layers = net_and_layers
         layers_new = [InputLayer(), OutputLayer(), DenseLayer(1)]
         net += layers_new
