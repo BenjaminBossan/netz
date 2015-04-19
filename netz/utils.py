@@ -253,7 +253,6 @@ def get_receptive_field(layers, img_size):
     for i, layer in enumerate(layers[1:]):
         j = i + 1
         if not conv_mode:
-            #receptive_field[j] = receptive_field[i]
             receptive_field[j] = img_size
             continue
 
@@ -280,7 +279,7 @@ def get_receptive_field(layers, img_size):
     return receptive_field
 
 
-def get_conv_infos(net, min_capacity=100./6, tablefmt='pipe', detailed=False):
+def get_conv_infos(net, min_capacity=100 / 6, tablefmt='pipe', detailed=False):
     if not hasattr(net, 'is_init_'):
         raise AttributeError("Please initialize the net before callings this "
                              "function, for instance by calling "
@@ -312,8 +311,10 @@ def get_conv_infos(net, min_capacity=100./6, tablefmt='pipe', detailed=False):
     colored_names = []
     for name, (covy, covx), (capy, capx) in zip(
             layer_names, img_coverage, capacity):
-        if (((covy > 100) or (covx > 100)) and
-            ((capy < min_capacity) or (capx < min_capacity))):
+        if (
+                ((covy > 100) or (covx > 100)) and
+                ((capy < min_capacity) or (capx < min_capacity))
+        ):
             name = "{}{}{}".format(RED, name, END)
         elif (covy > 100) or (covx > 100):
             name = "{}{}{}".format(CYA, name, END)
