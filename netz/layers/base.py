@@ -103,9 +103,11 @@ class BaseLayer(object):
         * orthogonal
           Orthogonal matrix initialization
           The assumptions work for dense and convolutional layers
+        * eye
+          identity matrix (i.e. 1 on diagonal and 0 else).
 
         """
-        schemes_known = ['He', 'Xavier', 'Zeros', 'Ones', 'Orthogonal']
+        schemes_known = ['He', 'Xavier', 'Zeros', 'Ones', 'Orthogonal', 'Eye']
         scheme_variants = schemes_known + [s.lower() for s in schemes_known]
         if scheme not in scheme_variants:
             raise TypeError("The proposed scheme {} is not supported, we only "
@@ -126,6 +128,8 @@ class BaseLayer(object):
             return shared_ones(shape, name, broadcastable)
         elif scheme.lower() == 'orthogonal':
             return shared_random_orthogonal(shape, name, broadcastable)
+        elif scheme.lower() == 'eye':
+            return shared_eye(shape, name, broadcastable)
 
     def get_l2_cost(self):
         pass
